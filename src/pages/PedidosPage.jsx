@@ -6,6 +6,15 @@ import { ProductLinesInput } from '../components/ProductLinesInput';
 
 const ESTADOS = ['pendiente', 'en_proceso', 'listo', 'completado', 'cancelado'];
 
+// Color del borde izquierdo según estado
+const ROW_COLORS = {
+  pendiente:  { borderLeft: '3px solid #F59E0B', background: 'transparent' },
+  en_proceso: { borderLeft: '3px solid #3B82F6', background: 'rgba(59,130,246,0.03)' },
+  listo:      { borderLeft: '3px solid #10B981', background: 'rgba(16,185,129,0.04)' },
+  completado: { borderLeft: '3px solid #8B5CF6', background: 'rgba(139,92,246,0.04)' },
+  cancelado:  { borderLeft: '3px solid #EF4444', background: 'rgba(239,68,68,0.05)' },
+};
+
 const emptyForm = () => ({
   cliente: '', telefono: '', email: '',
   fecha: new Date().toISOString().split('T')[0],
@@ -25,6 +34,7 @@ export const PedidosPage = () => {
   const [form, setForm] = useState(emptyForm());
   const [editId, setEditId] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [finanzasDialog, setFinanzasDialog] = useState(null); // { pedido } para confirmar ingreso
 
   const filtered = pedidos.filter(p => {
     const matchSearch = p.cliente.toLowerCase().includes(search.toLowerCase()) || p.id.toLowerCase().includes(search.toLowerCase());
@@ -74,8 +84,13 @@ export const PedidosPage = () => {
     if (modal) setModal(null);
   };
 
-  const updateEstado = (id, estado) => {
-    store.updatePedido(id, { estado });
+  const updateEstado = (id, nuevoEstado) => {
+    const pedido = pedidos.find(p => p.id === id);
+    store.updatePedido(id, { estado: nuevoEstado });
+    // Al completar → ofrecer registrar en Finanzas
+    if (nuevoEstado === 'completado' && pedido) {
+      setFinanzasDialog(pedido);
+    }
   };
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }));
@@ -139,38 +154,45 @@ export const PedidosPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => (
-                <tr key={p.id}>
-                  <td><span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>{p.id}</span></td>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{p.cliente}</div>
-                    {p.telefono && <div style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>{p.telefono}</div>}
-                  </td>
-                  <td style={{ fontSize: 13 }}>{p.fecha}</td>
-                  <td style={{ fontSize: 13 }}>{p.fechaEntrega || '—'}</td>
-                  <td>
-                    <select
-                      className="form-select"
-                      style={{ padding: '4px 28px 4px 8px', fontSize: 12, width: 'auto' }}
-                      value={p.estado}
-                      onChange={e => updateEstado(p.id, e.target.value)}
-                    >
-                      {ESTADOS.map(e => <option key={e} value={e}>{e.replace('_', ' ')}</option>)}
-                    </select>
-                  </td>
-                  <td><strong>{fmt(p.total)}</strong></td>
-                  <td style={{ color: (p.total - p.anticipo) > 0 ? 'hsl(var(--warning))' : 'hsl(var(--success))' }}>
-                    {fmt(p.total - p.anticipo)}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openView(p)} title="Ver">👁️</button>
-                      <button className="btn btn-secondary btn-icon btn-sm" onClick={() => openEdit(p)} title="Editar">✏️</button>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDelete(p.id)} title="Eliminar" style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map(p => {
+                const rowStyle = ROW_COLORS[p.estado] || {};
+                return (
+                  <tr key={p.id} style={rowStyle}>
+                    <td><span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>{p.id}</span></td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{p.cliente}</div>
+                      {p.telefono && <div style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>{p.telefono}</div>}
+                    </td>
+                    <td style={{ fontSize: 13 }}>{p.fecha}</td>
+                    <td style={{ fontSize: 13 }}>{p.fechaEntrega || '—'}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <StatusBadge status={p.estado} />
+                        <select
+                          className="form-select"
+                          style={{ padding: '2px 24px 2px 6px', fontSize: 11, width: 'auto', opacity: 0.7 }}
+                          value={p.estado}
+                          onChange={e => updateEstado(p.id, e.target.value)}
+                          title="Cambiar estado"
+                        >
+                          {ESTADOS.map(e => <option key={e} value={e}>{e.replace('_', ' ')}</option>)}
+                        </select>
+                      </div>
+                    </td>
+                    <td><strong>{fmt(p.total)}</strong></td>
+                    <td style={{ color: (p.total - p.anticipo) > 0 ? 'hsl(var(--warning))' : 'hsl(var(--success))' }}>
+                      {fmt(p.total - p.anticipo)}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openView(p)} title="Ver">👁️</button>
+                        <button className="btn btn-secondary btn-icon btn-sm" onClick={() => openEdit(p)} title="Editar">✏️</button>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDelete(p.id)} title="Eliminar" style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -328,6 +350,50 @@ export const PedidosPage = () => {
           onConfirm={confirmDelete}
           onCancel={() => setConfirm(null)}
         />
+      )}
+
+      {/* Diálogo: registrar en Finanzas al completar */}
+      {finanzasDialog && (
+        <div className="modal-overlay">
+          <div className="modal modal-sm">
+            <div className="modal-header">
+              <h2>💰 Registrar en Finanzas</h2>
+            </div>
+            <div className="modal-body" style={{ textAlign: 'center', padding: '28px 24px' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
+              <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>
+                Pedido de <strong>{finanzasDialog.cliente}</strong> completado
+              </p>
+              <p style={{ fontSize: 13, color: 'hsl(var(--muted))', marginBottom: 20 }}>
+                ¿Deseas registrar <strong>{`$${Number(finanzasDialog.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`}</strong> como ingreso en Finanzas?
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => setFinanzasDialog(null)}
+                >
+                  No, omitir
+                </button>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: 'hsl(var(--success))', borderColor: 'hsl(var(--success))' }}
+                  onClick={() => {
+                    store.addFinanza({
+                      tipo: 'ingreso',
+                      concepto: `Pedido ${finanzasDialog.id} - ${finanzasDialog.cliente}`,
+                      monto: finanzasDialog.total,
+                      fecha: new Date().toISOString().split('T')[0],
+                      categoria: 'Pedido',
+                    });
+                    setFinanzasDialog(null);
+                  }}
+                >
+                  ✅ Sí, registrar ingreso
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

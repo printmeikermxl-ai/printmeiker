@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore, store } from '../store/useStore';
 import { StatusBadge } from '../components/StatusBadge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -23,6 +24,7 @@ const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits
 
 export const CotizacionesPage = () => {
   const { cotizaciones, productos: catalogo, config } = useStore();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [modal, setModal] = useState(null);
@@ -54,7 +56,25 @@ export const CotizacionesPage = () => {
   const handleDelete = (id) => setConfirm({ id });
   const confirmDelete = () => { store.deleteCotizacion(confirm.id); setConfirm(null); if (modal) setModal(null); };
 
-  const updateEstado = (id, estado) => store.updateCotizacion(id, { estado });
+  const updateEstado = (id, nuevoEstado) => {
+    const cot = cotizaciones.find(c => c.id === id);
+    store.updateCotizacion(id, { estado: nuevoEstado });
+    // Si se aprueba → convertir a pedido automáticamente y navegar
+    if (nuevoEstado === 'aprobada' && cot) {
+      const yaExiste = store.getState().pedidos.some(p => p.notas && p.notas.includes(id));
+      if (!yaExiste) {
+        store.addPedido({
+          cliente: cot.cliente, telefono: cot.telefono, email: cot.email,
+          fecha: new Date().toISOString().split('T')[0], fechaEntrega: '',
+          estado: 'pendiente', productos: cot.productos,
+          total: cot.total, anticipo: 0,
+          notas: `Generado desde cotización ${id}`,
+          costoExtra: cot.costoExtra || 0,
+        });
+      }
+      setTimeout(() => navigate('/pedidos'), 300);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -163,14 +183,19 @@ export const CotizacionesPage = () => {
   };
 
   const handleConvertirPedido = (c) => {
-    store.addPedido({
-      cliente: c.cliente, telefono: c.telefono, email: c.email,
-      fecha: new Date().toISOString().split('T')[0], fechaEntrega: '',
-      estado: 'pendiente', productos: c.productos, total: c.total,
-      anticipo: 0, notas: `Convertido de cotización ${c.id}`,
-    });
+    const yaExiste = store.getState().pedidos.some(p => p.notas && p.notas.includes(c.id));
+    if (!yaExiste) {
+      store.addPedido({
+        cliente: c.cliente, telefono: c.telefono, email: c.email,
+        fecha: new Date().toISOString().split('T')[0], fechaEntrega: '',
+        estado: 'pendiente', productos: c.productos, total: c.total,
+        anticipo: 0, notas: `Generado desde cotización ${c.id}`,
+        costoExtra: c.costoExtra || 0,
+      });
+    }
     store.updateCotizacion(c.id, { estado: 'aprobada' });
-    alert('✅ Cotización convertida a pedido');
+    setModal(null);
+    navigate('/pedidos');
   };
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }));
@@ -231,22 +256,31 @@ export const CotizacionesPage = () => {
                   <td style={{ fontSize: 13 }}>{c.fecha}</td>
                   <td style={{ fontSize: 13 }}>{c.validez || '—'}</td>
                   <td>
-                    <select
-                      className="form-select"
-                      style={{ padding: '4px 28px 4px 8px', fontSize: 12, width: 'auto' }}
-                      value={c.estado}
-                      onChange={e => updateEstado(c.id, e.target.value)}
-                    >
-                      {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <StatusBadge status={c.estado} />
+                      <select
+                        className="form-select"
+                        style={{ padding: '2px 24px 2px 6px', fontSize: 11, width: 'auto', opacity: 0.7 }}
+                        value={c.estado}
+                        onChange={e => updateEstado(c.id, e.target.value)}
+                        title="Cambiar estado"
+                      >
+                        {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
+                      </select>
+                    </div>
                   </td>
                   <td><strong>{fmt(c.total)}</strong></td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openView(c)} title="Ver">👁️</button>
                       <button className="btn btn-secondary btn-icon btn-sm" onClick={() => openEdit(c)} title="Editar">✏️</button>
-                      {c.estado === 'pendiente' && (
-                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleConvertirPedido(c)} title="Convertir a pedido" style={{ color: 'hsl(var(--success))' }}>📦</button>
+                      {(c.estado === 'pendiente' || c.estado === 'aprobada') && (
+                        <button
+                          className="btn btn-ghost btn-icon btn-sm"
+                          onClick={() => handleConvertirPedido(c)}
+                          title="Enviar a Pedidos"
+                          style={{ color: 'hsl(var(--success))' }}
+                        >📦</button>
                       )}
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDelete(c.id)} title="Eliminar" style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
                     </div>
@@ -448,9 +482,13 @@ export const CotizacionesPage = () => {
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button className="btn btn-ghost" onClick={() => setModal(null)}>Cerrar</button>
-              {form.estado === 'pendiente' && (
-                <button className="btn btn-secondary" onClick={() => handleConvertirPedido({ ...form, id: editId, total })} style={{ marginRight: 'auto' }}>
-                  📦 Convertir a pedido
+              {(form.estado === 'pendiente' || form.estado === 'aprobada') && (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleConvertirPedido({ ...form, id: editId, total })}
+                  style={{ marginRight: 'auto', background: 'hsl(var(--success))', borderColor: 'hsl(var(--success))' }}
+                >
+                  📦 Enviar a Pedidos
                 </button>
               )}
               <button className="btn btn-secondary" onClick={handleDownloadImage}>🖼️ Guardar Imagen</button>
