@@ -82,6 +82,8 @@ let state = {
     email: '',
     moneda: 'MXN',
     iva: 16,
+    infoPago: '',
+    mensajePie: '¡Gracias por su preferencia!',
   }),
   negocioConfig: load('sep_negocio_config', {
     ingresoMensualDeseado: 15000,

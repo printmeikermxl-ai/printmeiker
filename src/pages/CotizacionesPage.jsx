@@ -10,20 +10,39 @@ import { jsPDF } from 'jspdf';
 const ESTADOS = ['pendiente', 'aprobada', 'rechazada', 'vencida'];
 
 const emptyForm = () => ({
-  cliente: '', telefono: '', email: '',
+  cliente: '', telefono: '', email: '', direccion: '',
   fecha: new Date().toISOString().split('T')[0],
   validez: '',
   estado: 'pendiente',
   productos: [{ nombre: '', cantidad: 1, precio: 0 }],
+  extras: [],
   notas: '',
-  costoExtra: 0,
-  costoExtraEtiqueta: '',
+  terminosCondiciones: '',
+  anticipo: 0,
+  anticipoPct: 0,
+  usarPorcentajeAnticipo: false,
+  aplicarIva: false,
+  ivaPct: 16,
 });
+
+// Helper — suma todos los extras
+const sumExtras = (extras = []) =>
+  extras.reduce((s, e) => s + Number(e.monto || 0), 0);
 
 const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
+// Helper to get CSS variable value as hex-like string for inline use
+const getPrimaryColor = () => {
+  const root = document.documentElement;
+  const primary = getComputedStyle(root).getPropertyValue('--primary').trim();
+  const primaryDark = getComputedStyle(root).getPropertyValue('--primary-dark').trim();
+  const primaryLight = getComputedStyle(root).getPropertyValue('--primary-light').trim();
+  const primaryRgb = getComputedStyle(root).getPropertyValue('--primary-rgb').trim();
+  return { primary, primaryDark, primaryLight, primaryRgb };
+};
+
 export const CotizacionesPage = () => {
-  const { cotizaciones, productos: catalogo, config } = useStore();
+  const { cotizaciones, productos: catalogo, config, negocioConfig } = useStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
@@ -39,15 +58,35 @@ export const CotizacionesPage = () => {
     return matchSearch && matchEstado;
   });
 
-  const total = form.productos.reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0) + Number(form.costoExtra || 0);
+  const subtotal = form.productos.reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0);
+  const totalExtras = sumExtras(form.extras);
+  const baseTotal = subtotal + totalExtras;
+  const ivaAmt = form.aplicarIva ? baseTotal * (Number(form.ivaPct || 0) / 100) : 0;
+  const total = baseTotal + ivaAmt;
 
-  const openCreate = () => { setForm(emptyForm()); setEditId(null); setModal('create'); };
+  // Anticipo calculation
+  const anticipoMonto = form.usarPorcentajeAnticipo
+    ? (total * Number(form.anticipoPct || 0)) / 100
+    : Number(form.anticipo || 0);
+  const saldoPendiente = total - anticipoMonto;
+
+  // Extras helpers
+  const addExtra = () => setForm(f => ({ ...f, extras: [...(f.extras || []), { id: Date.now().toString(), concepto: '', monto: '' }] }));
+  const removeExtra = (id) => setForm(f => ({ ...f, extras: (f.extras || []).filter(e => e.id !== id) }));
+  const updateExtra = (id, field, value) => setForm(f => ({ ...f, extras: (f.extras || []).map(e => e.id === id ? { ...e, [field]: value } : e) }));
+
+  const openCreate = () => {
+    const defaultTerminos = negocioConfig?.terminosLocales || '';
+    setForm({ ...emptyForm(), terminosCondiciones: defaultTerminos });
+    setEditId(null);
+    setModal('create');
+  };
   const openEdit = (c) => { setForm({ ...c }); setEditId(c.id); setModal('edit'); };
   const openView = (c) => { setForm({ ...c }); setEditId(c.id); setModal('view'); };
 
   const handleSave = (e) => {
     e.preventDefault();
-    const data = { ...form, total };
+    const data = { ...form, total, anticipoMonto, saldoPendiente };
     if (editId) store.updateCotizacion(editId, data);
     else store.addCotizacion(data);
     setModal(null);
@@ -59,7 +98,6 @@ export const CotizacionesPage = () => {
   const updateEstado = (id, nuevoEstado) => {
     const cot = cotizaciones.find(c => c.id === id);
     store.updateCotizacion(id, { estado: nuevoEstado });
-    // Si se aprueba → convertir a pedido automáticamente y navegar
     if (nuevoEstado === 'aprobada' && cot) {
       const yaExiste = store.getState().pedidos.some(p => p.notas && p.notas.includes(id));
       if (!yaExiste) {
@@ -67,7 +105,7 @@ export const CotizacionesPage = () => {
           cliente: cot.cliente, telefono: cot.telefono, email: cot.email,
           fecha: new Date().toISOString().split('T')[0], fechaEntrega: '',
           estado: 'pendiente', productos: cot.productos,
-          total: cot.total, anticipo: 0,
+          total: cot.total, anticipo: cot.anticipoMonto || 0,
           notas: `Generado desde cotización ${id}`,
           costoExtra: cot.costoExtra || 0,
         });
@@ -84,22 +122,18 @@ export const CotizacionesPage = () => {
     const element = document.getElementById('printable-quote-doc');
     if (!element) return;
 
-    // Create a container to hold the clone off-screen at exact Letter proportions
     const container = document.createElement('div');
     container.style.position = 'fixed';
     container.style.left = '-9999px';
     container.style.top = '0';
-    container.style.width = '8.5in'; // US Letter width
-    container.style.height = '11in'; // US Letter height
-    container.style.overflow = 'hidden';
+    container.style.width = '816px';
+    container.style.overflow = 'visible';
     container.style.backgroundColor = '#ffffff';
 
     const clone = element.cloneNode(true);
-    clone.style.width = '100%';
-    clone.style.height = '100%';
-    clone.style.minHeight = '100%';
+    clone.style.width = '816px';
     clone.style.margin = '0';
-    clone.style.padding = '0.5in'; // US Letter padding (approx 48px)
+    clone.style.padding = '48px';
     clone.style.boxSizing = 'border-box';
     clone.style.border = 'none';
     clone.style.boxShadow = 'none';
@@ -109,25 +143,27 @@ export const CotizacionesPage = () => {
 
     try {
       const canvas = await html2canvas(clone, {
-        scale: 3, // High DPI for crisp rendering
+        scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        logging: false
+        logging: false,
+        height: clone.scrollHeight,
+        windowHeight: clone.scrollHeight,
       });
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      
+
       const pdf = new jsPDF({
         orientation: 'portrait',
-        unit: 'in',
-        format: 'letter'
+        unit: 'px',
+        format: [816, clone.scrollHeight],
       });
-      
-      pdf.addImage(imgData, 'JPEG', 0, 0, 8.5, 11);
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, 816, clone.scrollHeight);
       pdf.save(`Cotizacion_${editId || 'documento'}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Hubo un error al generar el PDF. Puedes intentar imprimir directamente.');
+      alert('Hubo un error al generar el PDF.');
     } finally {
       document.body.removeChild(container);
     }
@@ -137,22 +173,18 @@ export const CotizacionesPage = () => {
     const element = document.getElementById('printable-quote-doc');
     if (!element) return;
 
-    // Create a container to hold the clone off-screen at exact Letter proportions
     const container = document.createElement('div');
     container.style.position = 'fixed';
     container.style.left = '-9999px';
     container.style.top = '0';
-    container.style.width = '8.5in'; // US Letter width
-    container.style.height = '11in'; // US Letter height
-    container.style.overflow = 'hidden';
+    container.style.width = '816px';
+    container.style.overflow = 'visible';
     container.style.backgroundColor = '#ffffff';
 
     const clone = element.cloneNode(true);
-    clone.style.width = '100%';
-    clone.style.height = '100%';
-    clone.style.minHeight = '100%';
+    clone.style.width = '816px';
     clone.style.margin = '0';
-    clone.style.padding = '0.5in'; // US Letter padding
+    clone.style.padding = '48px';
     clone.style.boxSizing = 'border-box';
     clone.style.border = 'none';
     clone.style.boxShadow = 'none';
@@ -162,13 +194,15 @@ export const CotizacionesPage = () => {
 
     try {
       const canvas = await html2canvas(clone, {
-        scale: 3, // High DPI for crisp rendering
+        scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        logging: false
+        logging: false,
+        height: clone.scrollHeight,
+        windowHeight: clone.scrollHeight,
       });
-      
+
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `Cotizacion_${editId || 'documento'}.png`;
@@ -189,7 +223,7 @@ export const CotizacionesPage = () => {
         cliente: c.cliente, telefono: c.telefono, email: c.email,
         fecha: new Date().toISOString().split('T')[0], fechaEntrega: '',
         estado: 'pendiente', productos: c.productos, total: c.total,
-        anticipo: 0, notas: `Generado desde cotización ${c.id}`,
+        anticipo: c.anticipoMonto || 0, notas: `Generado desde cotización ${c.id}`,
         costoExtra: c.costoExtra || 0,
       });
     }
@@ -199,6 +233,180 @@ export const CotizacionesPage = () => {
   };
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }));
+
+  // ── Quote Document Component ─────────────────────────────────────────────
+  const QuoteDocument = ({ formData, quoteId }) => {
+    const sub = formData.productos.reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0);
+    const extrasArr = formData.extras || [];
+    const extrasTotal = sumExtras(extrasArr);
+    const base = sub + extrasTotal;
+    const antPct = formData.usarPorcentajeAnticipo;
+
+    // IVA por cotización (no el global de config)
+    const ivaRate = formData.aplicarIva ? Number(formData.ivaPct || 0) : 0;
+    const ivaAmt  = base * (ivaRate / 100);
+    const tot = base + ivaAmt;
+
+    const ant = antPct
+      ? (tot * Number(formData.anticipoPct || 0)) / 100
+      : Number(formData.anticipo || 0);
+    const saldo = tot - ant;
+
+
+    const negocioNombre = config.negocio || 'Mi Negocio';
+    const negocioInicial = (config.propietario || negocioNombre || 'U')[0].toUpperCase();
+
+    return (
+      <div className="qd-doc" id="printable-quote-doc">
+        {/* ── HEADER ── */}
+        <div className="qd-header">
+          {/* Left: Logo + Company */}
+          <div className="qd-header-left">
+            <div className="qd-logo-block">
+              {config.profilePhoto ? (
+                <img src={config.profilePhoto} alt="Logo" className="qd-logo-img" />
+              ) : (
+                <div className="qd-logo-placeholder">{negocioInicial}</div>
+              )}
+              <div className="qd-company-info">
+                <div className="qd-company-name">{negocioNombre}</div>
+                {config.telefono && <div className="qd-company-detail">📞 {config.telefono}</div>}
+                {config.email && <div className="qd-company-detail">✉️ {config.email}</div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: COTIZACIÓN title + meta */}
+          <div className="qd-header-right">
+            <div className="qd-invoice-title">COTIZACIÓN</div>
+            <div className="qd-meta-grid">
+              <span className="qd-meta-label">No.:</span>
+              <span className="qd-meta-value">{quoteId}</span>
+              <span className="qd-meta-label">Fecha:</span>
+              <span className="qd-meta-value">{formData.fecha}</span>
+              {formData.validez && <>
+                <span className="qd-meta-label">Válida hasta:</span>
+                <span className="qd-meta-value">{formData.validez}</span>
+              </>}
+            </div>
+          </div>
+        </div>
+
+        {/* ── DIVIDER ACCENT ── */}
+        <div className="qd-accent-bar" />
+
+        {/* ── CLIENT + PAYMENT INFO ── */}
+        <div className="qd-info-row">
+          {/* Client Info */}
+          <div className="qd-info-block">
+            <div className="qd-info-label">COTIZADO PARA:</div>
+            <div className="qd-client-name">{formData.cliente || '—'}</div>
+            {formData.telefono && <div className="qd-client-detail">📞 {formData.telefono}</div>}
+            {formData.email && <div className="qd-client-detail">✉️ {formData.email}</div>}
+            {formData.direccion && <div className="qd-client-detail">📍 {formData.direccion}</div>}
+          </div>
+
+          {/* Payment Method Info (configurable from Settings) */}
+          {config.infoPago && (
+            <div className="qd-info-block">
+              <div className="qd-info-label">MÉTODO DE PAGO:</div>
+              {config.infoPago.split('\n').map((line, i) => (
+                <div key={i} className="qd-client-detail" style={{ marginTop: i === 0 ? 0 : 3 }}>{line}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── ITEMS TABLE ── */}
+        <div className="qd-table-wrap">
+          <table className="qd-table">
+            <thead>
+              <tr>
+                <th className="qd-th qd-th-no">No.</th>
+                <th className="qd-th qd-th-desc">Descripción del artículo</th>
+                <th className="qd-th qd-th-price">Precio</th>
+                <th className="qd-th qd-th-qty">Cant.</th>
+                <th className="qd-th qd-th-total">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Only product/service lines — no extra cost row here */}
+              {formData.productos.map((line, i) => (
+                <tr key={i} className={i % 2 === 1 ? 'qd-tr-alt' : ''}>
+                  <td className="qd-td qd-td-no">{String(i + 1).padStart(2, '0')}</td>
+                  <td className="qd-td qd-td-desc">{line.nombre || '—'}</td>
+                  <td className="qd-td qd-td-price">{fmt(line.precio)}</td>
+                  <td className="qd-td qd-td-qty">{line.cantidad}</td>
+                  <td className="qd-td qd-td-total">{fmt(Number(line.cantidad) * Number(line.precio))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── BOTTOM: Terms + Totals ── */}
+        <div className="qd-bottom-row">
+          {/* Left: Terms & Notes */}
+          <div className="qd-bottom-left">
+            {formData.terminosCondiciones && (
+              <div className="qd-terms-block">
+                <div className="qd-terms-title">Términos &amp; Condiciones:</div>
+                <p className="qd-terms-text">{formData.terminosCondiciones}</p>
+              </div>
+            )}
+            {formData.notas && (
+              <div className="qd-notes-block">
+                <div className="qd-terms-title">Notas:</div>
+                <p className="qd-terms-text">{formData.notas}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Totals box */}
+          <div className="qd-totals-box">
+            <div className="qd-total-row">
+              <span>Subtotal:</span>
+              <span>{fmt(sub)}</span>
+            </div>
+            {/* One row per extra */}
+            {extrasArr.filter(e => Number(e.monto) > 0).map(e => (
+              <div key={e.id} className="qd-total-row">
+                <span>{e.concepto || 'Cargo adicional'}:</span>
+                <span>{fmt(e.monto)}</span>
+              </div>
+            ))}
+            {ivaRate > 0 && (
+              <div className="qd-total-row">
+                <span>IVA ({ivaRate}%):</span>
+                <span>{fmt(ivaAmt)}</span>
+              </div>
+            )}
+            {ant > 0 && (
+              <div className="qd-total-row">
+                <span>Anticipo ({antPct ? `${formData.anticipoPct}%` : 'acordado'}):</span>
+                <span>-{fmt(ant)}</span>
+              </div>
+            )}
+            <div className="qd-grand-total-row">
+              <span>Total{ivaRate > 0 ? ' (IVA inc.)' : ''}:</span>
+              <span>{fmt(tot)}</span>
+            </div>
+            {ant > 0 && (
+              <div className="qd-saldo-row">
+                <span>Saldo pendiente:</span>
+                <span>{fmt(saldo)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── FOOTER ── */}
+        <div className="qd-footer">
+          <span>{config.mensajePie || '¡Gracias por su preferencia!'}</span>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -292,7 +500,7 @@ export const CotizacionesPage = () => {
         </div>
       )}
 
-      {/* Modal create/edit */}
+      {/* ── Modal create/edit ── */}
       {(modal === 'create' || modal === 'edit') && (
         <div className="modal-overlay">
           <div className="modal modal-lg">
@@ -302,6 +510,9 @@ export const CotizacionesPage = () => {
             </div>
             <form onSubmit={handleSave}>
               <div className="modal-body">
+
+                {/* Sección: Datos del cliente */}
+                <div className="cot-section-label">👤 Datos del cliente</div>
                 <div className="form-grid">
                   <div className="form-group">
                     <label className="form-label">Cliente *</label>
@@ -316,11 +527,14 @@ export const CotizacionesPage = () => {
                     <input className="form-input" type="email" value={form.email} onChange={e => set('email', e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Estado</label>
-                    <select className="form-select" value={form.estado} onChange={e => set('estado', e.target.value)}>
-                      {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
+                    <label className="form-label">Dirección</label>
+                    <input className="form-input" value={form.direccion || ''} onChange={e => set('direccion', e.target.value)} placeholder="Opcional" />
                   </div>
+                </div>
+
+                {/* Sección: Datos de la cotización */}
+                <div className="cot-section-label">📋 Detalles de la cotización</div>
+                <div className="form-grid">
                   <div className="form-group">
                     <label className="form-label">Fecha</label>
                     <input className="form-input" type="date" value={form.fecha} onChange={e => set('fecha', e.target.value)} />
@@ -329,30 +543,208 @@ export const CotizacionesPage = () => {
                     <label className="form-label">Válida hasta</label>
                     <input className="form-input" type="date" value={form.validez} onChange={e => set('validez', e.target.value)} />
                   </div>
+                  <div className="form-group">
+                    <label className="form-label">Estado</label>
+                    <select className="form-select" value={form.estado} onChange={e => set('estado', e.target.value)}>
+                      {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="divider" />
 
+                {/* Sección: Productos */}
+                <div className="cot-section-label">🛒 Productos / Servicios</div>
                 <div className="form-group">
-                  <label className="form-label">Productos / Servicios</label>
                   <ProductLinesInput lines={form.productos} onChange={lines => set('productos', lines)} productos={catalogo} />
                 </div>
 
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label className="form-label">Concepto de costo extra (Opcional)</label>
-                    <input className="form-input" value={form.costoExtraEtiqueta || ''} onChange={e => set('costoExtraEtiqueta', e.target.value)} placeholder="Ej. Envío, Diseño adicional, etc." />
+                {/* ── Cargos adicionales (múltiples) ── */}
+                <div className="cot-extras-header">
+                  <span className="cot-extras-title">Cargos adicionales</span>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={addExtra}>+ Agregar cargo</button>
+                </div>
+
+                {(form.extras || []).length === 0 && (
+                  <div className="cot-extras-empty">Sin cargos adicionales. Haz clic en "+ Agregar cargo" para añadir envío, diseño extra, etc.</div>
+                )}
+
+                <div className="cot-extras-list">
+                  {(form.extras || []).map((ex) => (
+                    <div key={ex.id} className="cot-extra-row">
+                      <input
+                        className="form-input cot-extra-concepto"
+                        value={ex.concepto}
+                        onChange={e => updateExtra(ex.id, 'concepto', e.target.value)}
+                        placeholder="Concepto (ej. Envío, Urgencia...)"
+                      />
+                      <div className="cot-extra-monto-wrap">
+                        <span className="cot-extra-prefix">$</span>
+                        <input
+                          className="form-input cot-extra-monto"
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={ex.monto}
+                          onChange={e => updateExtra(ex.id, 'monto', e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-icon cot-extra-del"
+                        onClick={() => removeExtra(ex.id)}
+                        title="Eliminar cargo"
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Totales en tiempo real */}
+                <div className="cot-totales-preview">
+                  <div className="cot-total-item">
+                    <span>Subtotal productos</span>
+                    <span>{fmt(subtotal)}</span>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Monto costo extra</label>
-                    <input className="form-input" type="number" min="0" step="any" value={form.costoExtra || ''} onChange={e => set('costoExtra', e.target.value === '' ? 0 : Number(e.target.value))} placeholder="0.00" />
+                  {(form.extras || []).filter(e => Number(e.monto) > 0).map(e => (
+                    <div key={e.id} className="cot-total-item">
+                      <span>{e.concepto || 'Cargo adicional'}</span>
+                      <span>+ {fmt(e.monto)}</span>
+                    </div>
+                  ))}
+                  {form.aplicarIva && Number(form.ivaPct) > 0 && (
+                    <div className="cot-total-item">
+                      <span>IVA ({form.ivaPct}%)</span>
+                      <span>+ {fmt(ivaAmt)}</span>
+                    </div>
+                  )}
+                  <div className="cot-total-item cot-total-grande">
+                    <span>Total{form.aplicarIva ? ' (con IVA)' : ''}</span>
+                    <span>{fmt(total)}</span>
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Notas</label>
-                  <textarea className="form-textarea" value={form.notas} onChange={e => set('notas', e.target.value)} placeholder="Términos, condiciones, detalles adicionales..." />
+                <div className="divider" />
+
+                {/* Sección: Anticipo */}
+                <div className="cot-section-label">💰 Anticipo</div>
+                <div className="cot-anticipo-toggle">
+                  <label className="cot-toggle-label">
+                    <input
+                      type="checkbox"
+                      checked={form.usarPorcentajeAnticipo || false}
+                      onChange={e => set('usarPorcentajeAnticipo', e.target.checked)}
+                    />
+                    Calcular anticipo por porcentaje
+                  </label>
                 </div>
+                <div className="form-grid">
+                  {form.usarPorcentajeAnticipo ? (
+                    <div className="form-group">
+                      <label className="form-label">Porcentaje de anticipo (%)</label>
+                      <input
+                        className="form-input"
+                        type="number" min="0" max="100" step="1"
+                        value={form.anticipoPct || ''}
+                        onChange={e => set('anticipoPct', e.target.value === '' ? 0 : Number(e.target.value))}
+                        placeholder="Ej. 50"
+                      />
+                      {Number(form.anticipoPct) > 0 && (
+                        <span className="cot-calc-hint">= {fmt((total * Number(form.anticipoPct)) / 100)} de anticipo</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label className="form-label">Monto de anticipo</label>
+                      <input
+                        className="form-input"
+                        type="number" min="0" step="any"
+                        value={form.anticipo || ''}
+                        onChange={e => set('anticipo', e.target.value === '' ? 0 : Number(e.target.value))}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  )}
+                  {anticipoMonto > 0 && (
+                    <div className="form-group">
+                      <label className="form-label">Saldo pendiente</label>
+                      <div className="cot-saldo-display">{fmt(saldoPendiente)}</div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="divider" />
+
+                {/* Sección: IVA */}
+                <div className="cot-section-label">🧾 IVA</div>
+                <div className="cot-iva-row">
+                  <label className="cot-toggle-label">
+                    <input
+                      type="checkbox"
+                      checked={form.aplicarIva || false}
+                      onChange={e => set('aplicarIva', e.target.checked)}
+                    />
+                    Aplicar IVA a esta cotización
+                  </label>
+                  {form.aplicarIva && (
+                    <div className="cot-iva-pct-wrap">
+                      <input
+                        className="form-input cot-iva-input"
+                        type="number"
+                        min="0"
+                        max="30"
+                        step="1"
+                        value={form.ivaPct ?? 16}
+                        onChange={e => set('ivaPct', e.target.value === '' ? 16 : Number(e.target.value))}
+                      />
+                      <span className="cot-iva-suffix">%</span>
+                      <span className="cot-calc-hint" style={{ marginTop: 0, marginLeft: 8 }}>
+                        = {fmt(ivaAmt)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="divider" />
+
+                {/* Sección: Notas */}
+                <div className="cot-section-label">📝 Notas</div>
+                <div className="form-group">
+                  <label className="form-label">Notas internas / adicionales</label>
+                  <textarea className="form-textarea" value={form.notas} onChange={e => set('notas', e.target.value)} placeholder="Detalles adicionales para el cliente..." rows={3} />
+                </div>
+
+                {/* Sección: Términos y condiciones */}
+                <div className="cot-section-label">📜 Términos y condiciones</div>
+                <div className="form-group">
+                  <label className="form-label">Términos y condiciones</label>
+                  <textarea
+                    className="form-textarea"
+                    value={form.terminosCondiciones}
+                    onChange={e => set('terminosCondiciones', e.target.value)}
+                    placeholder="Ej. Anticipo del 50% para apartar fecha. Saldo al entregar. Tiempo de producción: 3 a 7 días hábiles..."
+                    rows={4}
+                  />
+                  {negocioConfig?.terminosLocales && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => set('terminosCondiciones', negocioConfig.terminosLocales)}
+                      >
+                        📌 Usar términos locales
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => set('terminosCondiciones', negocioConfig.terminosNacionales || '')}
+                      >
+                        🚚 Usar términos nacionales
+                      </button>
+                    </div>
+                  )}
+                </div>
+
               </div>
               <div className="modal-footer">
                 {editId && <button type="button" className="btn btn-danger" onClick={() => handleDelete(editId)} style={{ marginRight: 'auto' }}>🗑️</button>}
@@ -364,7 +756,7 @@ export const CotizacionesPage = () => {
         </div>
       )}
 
-      {/* View modal with print */}
+      {/* ── View modal ── */}
       {modal === 'view' && (
         <div className="modal-overlay">
           <div className="modal modal-xl" ref={printRef}>
@@ -372,113 +764,8 @@ export const CotizacionesPage = () => {
               <h2>📋 Cotización {editId}</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setModal(null)}>✕</button>
             </div>
-            <div className="modal-body" style={{ background: '#f8fafc', padding: '24px 32px' }}>
-              <div className="printable-quote" id="printable-quote-doc">
-                {/* Header section */}
-                <div className="quote-header-section">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    {config.profilePhoto ? (
-                      <img 
-                        src={config.profilePhoto} 
-                        alt="Logo" 
-                        className="quote-biz-logo" 
-                      />
-                    ) : (
-                      <div style={{ width: 72, height: 72, borderRadius: 12, backgroundColor: 'hsl(var(--primary))', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-                        {(config.propietario || config.negocio || 'U')[0].toUpperCase()}
-                      </div>
-                    )}
-                    <div className="quote-biz-details">
-                      <h3>{config.negocio || 'Mi Negocio'}</h3>
-                      {config.telefono && <div>📞 {config.telefono}</div>}
-                      {config.email && <div>✉️ {config.email}</div>}
-                    </div>
-                  </div>
-                  <div className="quote-meta-details">
-                    <h2 className="quote-title">Cotización</h2>
-                    <div className="quote-id">{editId}</div>
-                    <div className="quote-dates">
-                      <div><strong>Fecha de emisión:</strong> {form.fecha}</div>
-                      {form.validez && <div><strong>Válido hasta:</strong> {form.validez}</div>}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Info grid */}
-                <div className="quote-info-grid">
-                  <div>
-                    <div className="info-section-title">Información del Cliente</div>
-                    <div className="info-client-name">{form.cliente}</div>
-                    {form.telefono && <div className="info-client-contact">📞 {form.telefono}</div>}
-                    {form.email && <div className="info-client-contact">✉️ {form.email}</div>}
-                  </div>
-                  <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end' }}>
-                    <div className="info-section-title" style={{ marginBottom: 6 }}>Estado</div>
-                    <StatusBadge status={form.estado} />
-                  </div>
-                </div>
-
-                {/* Items Table */}
-                <div className="quote-table-wrapper">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Producto / Servicio</th>
-                        <th style={{ width: 80, textAlign: 'center' }}>Cant.</th>
-                        <th style={{ width: 120, textAlign: 'right' }}>Precio Unit.</th>
-                        <th style={{ width: 120, textAlign: 'right' }}>Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {form.productos.map((line, i) => (
-                        <tr key={i}>
-                          <td><strong>{line.nombre}</strong></td>
-                          <td style={{ textAlign: 'center' }}>{line.cantidad}</td>
-                          <td style={{ textAlign: 'right' }}>{fmt(line.precio)}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(line.cantidad * line.precio)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Totals & Notes */}
-                <div style={{ display: 'grid', gridTemplateColumns: form.notas ? '1.2fr 1fr' : '1fr', gap: 24, alignItems: 'start' }}>
-                  {form.notas ? (
-                    <div className="quote-notes-section">
-                      <div className="info-section-title">Notas / Condiciones</div>
-                      <p>{form.notas}</p>
-                    </div>
-                  ) : <div />}
-                  <div className="quote-totals-section" style={{ borderTop: 'none', paddingTop: 0, marginBottom: 0 }}>
-                    <div className="quote-totals-box">
-                      <div className="quote-total-row">
-                        <span>Subtotal:</span>
-                        <span>{fmt(form.productos.reduce((s, l) => s + l.cantidad * l.precio, 0))}</span>
-                      </div>
-                      {Number(form.costoExtra || 0) > 0 && (
-                        <div className="quote-total-row">
-                          <span>{form.costoExtraEtiqueta || 'Costo Extra'}:</span>
-                          <span>{fmt(form.costoExtra)}</span>
-                        </div>
-                      )}
-                      <div className="quote-total-row">
-                        <span>IVA (0%):</span>
-                        <span>$0.00</span>
-                      </div>
-                      <div className="quote-total-row grand-total">
-                        <span>Total:</span>
-                        <span>{fmt(form.productos.reduce((s, l) => s + l.cantidad * l.precio, 0) + Number(form.costoExtra || 0))}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Message */}
-                <div className="quote-footer-msg">
-                  ¡Gracias por la oportunidad de cotizar con nosotros! Quedamos a sus órdenes.
-                </div>
-              </div>
+            <div className="modal-body" style={{ background: '#f1f5f9', padding: '24px', overflowX: 'auto' }}>
+              <QuoteDocument formData={form} quoteId={editId} />
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button className="btn btn-ghost" onClick={() => setModal(null)}>Cerrar</button>

@@ -285,6 +285,37 @@ export const ConfiguracionPage = () => {
                   <input className={inputClass(editConfig)} disabled={!editConfig} type="number" min="0" max="30" value={formConfig.iva} onChange={e => setFormConfig({...formConfig, iva: e.target.value})} />
                 </div>
               </div>
+
+              {/* Cotizaciones */}
+              <div style={{ background: 'hsl(var(--bg))', padding: 16, borderRadius: 12, marginTop: 4 }}>
+                <h4 style={{ fontWeight: 600, fontSize: 14, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  📋 Configuración de Cotizaciones
+                </h4>
+                <div className="form-group" style={{ marginBottom: 14 }}>
+                  <label className="form-label">Método de pago (aparece en el documento)</label>
+                  <textarea
+                    className={textareaClass(editConfig)}
+                    disabled={!editConfig}
+                    rows={3}
+                    value={formConfig.infoPago || ''}
+                    onChange={e => setFormConfig({...formConfig, infoPago: e.target.value})}
+                    placeholder={'Ej:\nCuenta BBVA: 1234 5678 9012\nNombre: Mi Negocio\nClabe: 012 345 6789'}
+                  />
+                  <span style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>Cada línea aparece como una fila en el bloque de método de pago del documento. Si está vacío, el bloque no aparece.</span>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Mensaje de pie de cotización</label>
+                  <input
+                    className={inputClass(editConfig)}
+                    disabled={!editConfig}
+                    value={formConfig.mensajePie || ''}
+                    onChange={e => setFormConfig({...formConfig, mensajePie: e.target.value})}
+                    placeholder="¡Gracias por su preferencia!"
+                  />
+                  <span style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>Texto que aparece al pie de cada cotización generada.</span>
+                </div>
+              </div>
+
               {editConfig && (
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
                   <button type="button" className="btn btn-ghost" onClick={() => { setFormConfig(config); setEditConfig(false); }}>Cancelar</button>
