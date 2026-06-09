@@ -2791,3 +2791,486 @@ html, body, #root {
   border-color: hsl(var(--border));
   color: hsl(var(--foreground));
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   CALCULADORA DE PRECIOS — ESTILOS COMPLETOS
+════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Layout general ─────────────────────────────────────────────────────── */
+.calc-wrapper-full {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  align-items: start;
+}
+
+.calc-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.calc-result-col {
+  position: sticky;
+  top: calc(var(--topbar-h) + 16px);
+}
+
+/* ── Tabs internos ──────────────────────────────────────────────────────── */
+.calc-tabs {
+  display: flex;
+  gap: 4px;
+  background: hsl(var(--bg));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 8px 10px 0;
+  flex-wrap: wrap;
+}
+
+.calc-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted));
+  cursor: pointer;
+  transition: all var(--transition);
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.calc-tab:hover:not(.active) {
+  color: hsl(var(--foreground));
+  background: hsl(var(--sidebar-active));
+}
+
+.calc-tab.active {
+  color: hsl(var(--primary));
+  font-weight: 700;
+  background: hsl(var(--card));
+  border-bottom: 2px solid hsl(var(--primary));
+  box-shadow: 0 -2px 8px rgba(var(--primary-rgb), .1);
+}
+
+.calc-tab-emoji {
+  font-size: 15px;
+}
+
+.calc-tab-label {
+  font-size: 13px;
+}
+
+/* ── Panel de formulario ────────────────────────────────────────────────── */
+.calc-panel {
+  border-radius: 0 0 var(--radius) var(--radius) !important;
+}
+
+/* ── Mensajes de ayuda ──────────────────────────────────────────────────── */
+.calc-tip {
+  background: hsl(var(--primary-light));
+  color: hsl(var(--primary-dark));
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.calc-hint {
+  font-size: 12px;
+  color: hsl(var(--muted));
+  margin-top: 6px;
+}
+
+.calc-hint strong {
+  color: hsl(var(--primary));
+}
+
+/* ── Tabla de costos fijos ──────────────────────────────────────────────── */
+.fijos-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.fijos-header {
+  display: grid;
+  grid-template-columns: 1fr 160px 36px;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: hsl(var(--muted));
+  padding: 0 4px;
+}
+
+.fijos-row {
+  display: grid;
+  grid-template-columns: 1fr 160px 36px;
+  gap: 8px;
+  align-items: center;
+  animation: fadeIn .2s ease;
+}
+
+.fijo-concepto {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 9px 12px;
+  background: hsl(var(--bg));
+  border-radius: var(--radius-sm);
+  border: 1.5px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.fijo-monto-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: relative;
+}
+
+.fijo-peso {
+  position: absolute;
+  left: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--muted));
+  pointer-events: none;
+  z-index: 1;
+}
+
+.fijo-monto-input {
+  padding-left: 22px !important;
+}
+
+.fijo-total-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: hsl(var(--primary-light));
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(var(--primary-dark));
+}
+
+/* ── Tabla de depreciación ──────────────────────────────────────────────── */
+.deprec-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid hsl(var(--border));
+}
+
+.deprec-table {
+  width: 100%;
+  font-size: 13px;
+  border-collapse: collapse;
+  background: hsl(var(--card));
+}
+
+.deprec-table thead tr {
+  background: hsl(var(--bg));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.deprec-table th {
+  padding: 9px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: hsl(var(--muted));
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+.deprec-table td {
+  padding: 8px 8px;
+  border-bottom: 1px solid hsl(var(--border));
+  vertical-align: middle;
+}
+
+.deprec-table tr:last-child td {
+  border-bottom: none;
+}
+
+.deprec-table tbody tr:hover {
+  background: hsl(var(--bg));
+}
+
+.deprec-input {
+  min-width: 90px !important;
+  padding: 7px 10px !important;
+  font-size: 13px !important;
+}
+
+.deprec-anos {
+  min-width: 60px !important;
+  max-width: 70px !important;
+}
+
+.deprec-calc {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--primary));
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* ── Panel de resultado (derecha) ───────────────────────────────────────── */
+.calc-result {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  color: white;
+  box-shadow: 0 8px 28px rgba(var(--primary-rgb), .35);
+  text-align: center;
+}
+
+.calc-result h3 {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+.calc-price {
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.calc-breakdown {
+  margin-top: 20px;
+  background: rgba(255,255,255,.12);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calc-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.calc-row.total {
+  border-top: 1px solid rgba(255,255,255,.3);
+  padding-top: 8px;
+  margin-top: 4px;
+  font-weight: 800;
+  font-size: 14px;
+  opacity: 1;
+}
+
+/* ── Sección Precio — mini resumen ─────────────────────────────────────── */
+.precio-breakdown {
+  background: hsl(var(--bg));
+  border-radius: var(--radius-sm);
+  border: 1px solid hsl(var(--border));
+  overflow: hidden;
+}
+
+.precio-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.precio-row:last-child {
+  border-bottom: none;
+}
+
+.precio-row.total-row {
+  font-weight: 700;
+  background: hsl(var(--primary-light));
+  color: hsl(var(--primary-dark));
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .calc-wrapper-full {
+    grid-template-columns: 1fr;
+  }
+  .calc-result-col {
+    position: static;
+    order: -1;
+  }
+  .calc-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  .calc-tab-label {
+    display: none;
+  }
+  .calc-tab {
+    padding: 8px 12px;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Materiales: Modo de compra toggle ──────────────────────────────────── */
+.modo-compra-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.modo-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  border: 1.5px solid hsl(var(--border));
+  background: hsl(var(--bg));
+  color: hsl(var(--muted));
+}
+
+.modo-btn:hover:not(.active) {
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
+  background: hsl(var(--primary-light));
+}
+
+.modo-btn.active {
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: white;
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), .30);
+}
+
+/* ── Materiales: Sección separadora ─────────────────────────────────────── */
+.mat-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: hsl(var(--muted));
+  margin: 16px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Materiales: Caja de resultado calculado ────────────────────────────── */
+.mat-result-box {
+  background: linear-gradient(135deg, hsl(var(--primary-light)), hsl(var(--bg)));
+  border: 1.5px solid hsl(var(--primary));
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin: 12px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mat-result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: hsl(var(--primary-dark));
+}
+
+.mat-result-row strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: hsl(var(--primary));
+}
+
+/* ── Empaque tab ─────────────────────────────────────────────────────────── */
+.empaque-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid hsl(var(--border));
+  background: hsl(var(--bg));
+  transition: all var(--transition);
+}
+
+.empaque-toggle-label:hover {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary-light));
+}
+
+.empaque-table {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.empaque-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr 1fr 1.2fr 1fr 36px;
+  gap: 6px;
+  padding: 8px 10px;
+  background: hsl(var(--bg));
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: hsl(var(--muted));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.empaque-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr 1fr 1.2fr 1fr 36px;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid hsl(var(--border));
+  transition: background var(--transition);
+}
+
+.empaque-row:last-child {
+  border-bottom: none;
+}
+
+.empaque-row:hover {
+  background: hsl(var(--bg));
+}
+
+.empaque-cost {
+  font-weight: 700;
+  font-size: 13px;
+  color: hsl(var(--primary));
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .empaque-header { display: none; }
+  .empaque-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+}

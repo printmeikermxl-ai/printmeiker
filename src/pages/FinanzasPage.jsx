@@ -9,19 +9,48 @@ const CATEGORIAS_GASTO = ['Materiales', 'Renta', 'Servicios', 'Salarios', 'Equip
 
 const emptyForm = () => ({
   tipo: 'ingreso', concepto: '', monto: '',
+  costoProd: '',  // costo de producción (solo para ingresos)
   fecha: new Date().toISOString().split('T')[0],
   categoria: 'Ventas',
 });
 
 const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
+const MESES = [
+  { value: '', label: 'Todos los meses' },
+  { value: '01', label: 'Enero' }, { value: '02', label: 'Febrero' },
+  { value: '03', label: 'Marzo' }, { value: '04', label: 'Abril' },
+  { value: '05', label: 'Mayo' }, { value: '06', label: 'Junio' },
+  { value: '07', label: 'Julio' }, { value: '08', label: 'Agosto' },
+  { value: '09', label: 'Septiembre' }, { value: '10', label: 'Octubre' },
+  { value: '11', label: 'Noviembre' }, { value: '12', label: 'Diciembre' },
+];
+
 export const FinanzasPage = () => {
-  const { finanzas } = useStore();
+  const { finanzas, productos: catalogo } = useStore();
   const [search, setSearch] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [confirm, setConfirm] = useState(null);
+
+  // Filtros de la gráfica
+  const anioActual = new Date().getFullYear().toString();
+  const [chartMes, setChartMes] = useState('');
+  const [chartAnio, setChartAnio] = useState(anioActual);
+  const [chartCategoria, setChartCategoria] = useState('todas');
+
+  // Años disponibles
+  const aniosDisponibles = [...new Set(
+    finanzas.map(f => f.fecha?.slice(0, 4)).filter(Boolean)
+  )].sort((a, b) => b - a);
+  if (!aniosDisponibles.includes(anioActual)) aniosDisponibles.unshift(anioActual);
+
+  // Categorias para el filtro de gráfica (incluye productos del catálogo)
+  const todasCategorias = [...new Set(finanzas.map(f => f.categoria).filter(Boolean))];
+
+  // Productos del catálogo para usar como categorías en la gráfica
+  const nombresCatalogo = (catalogo || []).map(p => p.nombre).filter(Boolean);
 
   const filtered = finanzas.filter(f => {
     const matchSearch = f.concepto.toLowerCase().includes(search.toLowerCase()) || f.categoria.toLowerCase().includes(search.toLowerCase());
@@ -30,20 +59,50 @@ export const FinanzasPage = () => {
   });
 
   const ingresos = finanzas.filter(f => f.tipo === 'ingreso').reduce((s, f) => s + f.monto, 0);
-  const gastos = finanzas.filter(f => f.tipo === 'gasto').reduce((s, f) => s + f.monto, 0);
-  const balance = ingresos - gastos;
+  const gastos   = finanzas.filter(f => f.tipo === 'gasto').reduce((s, f) => s + f.monto, 0);
+  const costoProdTotal = finanzas
+    .filter(f => f.tipo === 'ingreso' && f.costoProd)
+    .reduce((s, f) => s + Number(f.costoProd || 0), 0);
+  const gananciaTotal = ingresos - costoProdTotal - gastos;
 
-  // Chart data by category
-  const categorias = [...new Set(finanzas.map(f => f.categoria))];
-  const chartData = categorias.map(cat => {
-    const ing = finanzas.filter(f => f.tipo === 'ingreso' && f.categoria === cat).reduce((s, f) => s + f.monto, 0);
-    const gas = finanzas.filter(f => f.tipo === 'gasto' && f.categoria === cat).reduce((s, f) => s + f.monto, 0);
-    return { cat: cat.length > 10 ? cat.slice(0, 10) + '…' : cat, ingresos: ing, gastos: gas };
+  // ── Datos de la gráfica con filtros de mes/año/categoría
+  const finanzasFiltroChart = finanzas.filter(f => {
+    const fAnio = f.fecha?.slice(0, 4);
+    const fMes  = f.fecha?.slice(5, 7);
+    const matchAnio = !chartAnio || fAnio === chartAnio;
+    const matchMes  = !chartMes  || fMes  === chartMes;
+    const matchCat  = chartCategoria === 'todas' || f.categoria === chartCategoria;
+    return matchAnio && matchMes && matchCat;
   });
+
+  // Construir chartData: si hay filtro de mes, agrupar por categoría; si hay filtro de año, por mes
+  let chartData = [];
+  if (!chartMes && !chartCategoria && chartAnio) {
+    // Vista por mes del año seleccionado
+    const mesesConDatos = [...new Set(finanzasFiltroChart.map(f => f.fecha?.slice(5, 7)).filter(Boolean))].sort();
+    chartData = mesesConDatos.map(mes => {
+      const label = MESES.find(m => m.value === mes)?.label?.slice(0, 3) || mes;
+      const ing = finanzasFiltroChart.filter(f => f.tipo === 'ingreso' && f.fecha?.slice(5, 7) === mes).reduce((s, f) => s + f.monto, 0);
+      const gas = finanzasFiltroChart.filter(f => f.tipo === 'gasto'   && f.fecha?.slice(5, 7) === mes).reduce((s, f) => s + f.monto, 0);
+      return { cat: label, ingresos: ing, gastos: gas };
+    });
+  } else {
+    // Vista por categoría con filtros aplicados
+    const cats = [...new Set(finanzasFiltroChart.map(f => f.categoria).filter(Boolean))];
+    chartData = cats.map(cat => {
+      const ing = finanzasFiltroChart.filter(f => f.tipo === 'ingreso' && f.categoria === cat).reduce((s, f) => s + f.monto, 0);
+      const gas = finanzasFiltroChart.filter(f => f.tipo === 'gasto'   && f.categoria === cat).reduce((s, f) => s + f.monto, 0);
+      return { cat: cat.length > 10 ? cat.slice(0, 10) + '…' : cat, ingresos: ing, gastos: gas };
+    });
+  }
 
   const handleSave = (e) => {
     e.preventDefault();
-    store.addFinanza({ ...form, monto: Number(form.monto) });
+    store.addFinanza({
+      ...form,
+      monto: Number(form.monto),
+      costoProd: form.tipo === 'ingreso' && form.costoProd !== '' ? Number(form.costoProd) : null,
+    });
     setModal(false);
     setForm(emptyForm());
   };
@@ -63,25 +122,70 @@ export const FinanzasPage = () => {
       {/* Summary */}
       <div className="finanzas-summary">
         <div className="balance-card positive">
-          <div className="balance-label">💚 Total ingresos</div>
+          <div className="balance-label">💰 Total Bruto</div>
           <div className="balance-amount">{fmt(ingresos)}</div>
+          <div style={{ fontSize: 11, opacity: 0.75, marginTop: 4 }}>Total facturado a clientes</div>
         </div>
         <div className="balance-card negative">
-          <div className="balance-label">❤️ Total gastos</div>
-          <div className="balance-amount">{fmt(gastos)}</div>
+          <div className="balance-label">🏧 Costo Producción</div>
+          <div className="balance-amount">{fmt(costoProdTotal + gastos)}</div>
+          <div style={{ fontSize: 11, opacity: 0.75, marginTop: 4 }}>Prod: {fmt(costoProdTotal)} + Gastos: {fmt(gastos)}</div>
         </div>
-        <div className={`balance-card ${balance >= 0 ? 'neutral' : 'negative'}`}>
-          <div className="balance-label">{balance >= 0 ? '✨' : '⚠️'} Balance neto</div>
-          <div className="balance-amount">{fmt(balance)}</div>
+        <div className={`balance-card ${gananciaTotal >= 0 ? 'neutral' : 'negative'}`}>
+          <div className="balance-label">{gananciaTotal >= 0 ? '✨' : '⚠️'} Ganancia Total</div>
+          <div className="balance-amount">{fmt(gananciaTotal)}</div>
+          <div style={{ fontSize: 11, opacity: 0.75, marginTop: 4 }}>Bruto − Costos</div>
         </div>
       </div>
 
       {/* Chart */}
-      {chartData.length > 0 && (
+      {finanzas.length > 0 && (
         <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-header">
-            <span style={{ fontSize: 18 }}>📊</span>
-            <span className="card-title">Movimientos por categoría</span>
+          <div className="card-header" style={{ flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 18 }}>📊</span>
+              <span className="card-title">Movimientos por producto / servicio</span>
+            </div>
+            {/* Filtros de gráfica */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
+              <select
+                className="form-select"
+                style={{ padding: '4px 28px 4px 8px', fontSize: 12, height: 32 }}
+                value={chartAnio}
+                onChange={e => setChartAnio(e.target.value)}
+              >
+                <option value="">Todos los años</option>
+                {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <select
+                className="form-select"
+                style={{ padding: '4px 28px 4px 8px', fontSize: 12, height: 32 }}
+                value={chartMes}
+                onChange={e => setChartMes(e.target.value)}
+              >
+                {MESES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+              <select
+                className="form-select"
+                style={{ padding: '4px 28px 4px 8px', fontSize: 12, height: 32 }}
+                value={chartCategoria}
+                onChange={e => setChartCategoria(e.target.value)}
+              >
+                <option value="todas">Todos los productos</option>
+                {/* Productos del catálogo */}
+                {nombresCatalogo.length > 0 && (
+                  <optgroup label="📌 Productos del catálogo">
+                    {nombresCatalogo.map(n => <option key={n} value={n}>{n}</option>)}
+                  </optgroup>
+                )}
+                {/* Otras categorías que ya existen en finanzas */}
+                {todasCategorias.filter(c => !nombresCatalogo.includes(c)).length > 0 && (
+                  <optgroup label="Otras categorías">
+                    {todasCategorias.filter(c => !nombresCatalogo.includes(c)).map(c => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
+                )}
+              </select>
+            </div>
           </div>
           <div className="chart-wrapper">
             <ResponsiveContainer width="100%" height="100%">
@@ -145,6 +249,11 @@ export const FinanzasPage = () => {
                     <strong style={{ color: f.tipo === 'ingreso' ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
                       {f.tipo === 'ingreso' ? '+' : '-'}{fmt(f.monto)}
                     </strong>
+                    {f.tipo === 'ingreso' && f.costoProd != null && (
+                      <div style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 2 }}>
+                        Costo prod: {fmt(f.costoProd)} → ganancia: <span style={{ color: 'hsl(var(--success))' }}>{fmt(f.monto - f.costoProd)}</span>
+                      </div>
+                    )}
                   </td>
                   <td>
                     <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirm({ id: f.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
@@ -189,15 +298,53 @@ export const FinanzasPage = () => {
                 <div className="form-group">
                   <label className="form-label">Categoría</label>
                   <select className="form-select" value={form.categoria} onChange={e => set('categoria', e.target.value)}>
-                    {(form.tipo === 'ingreso' ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO).map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
+                    {form.tipo === 'ingreso' ? (
+                      <>
+                        <optgroup label="General">
+                          {['Ventas', 'Anticipo', 'Servicio', 'Otro'].map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </optgroup>
+                        {nombresCatalogo.length > 0 && (
+                          <optgroup label="📌 Producto del catálogo">
+                            {nombresCatalogo.map(n => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </>
+                    ) : (
+                      ['Materiales', 'Renta', 'Servicios', 'Salarios', 'Equipo', 'Otro'].map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))
+                    )}
                   </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Monto *</label>
                   <input className="form-input" type="number" min="0" step="0.01" required value={form.monto} onChange={e => set('monto', e.target.value)} placeholder="0.00" />
                 </div>
+
+                {form.tipo === 'ingreso' && (
+                  <div className="form-group" style={{ animation: 'fadeIn 0.2s ease' }}>
+                    <label className="form-label">
+                      🏧 Costo de producción <span style={{ fontSize: 11, fontWeight: 400, color: 'hsl(var(--muted))' }}>opcional</span>
+                    </label>
+                    <input
+                      className="form-input"
+                      type="number" min="0" step="0.01"
+                      value={form.costoProd}
+                      onChange={e => set('costoProd', e.target.value)}
+                      placeholder="Cuánto te costó producir este trabajo"
+                    />
+                    {form.monto && form.costoProd && Number(form.costoProd) > 0 && (
+                      <div style={{ marginTop: 6, fontSize: 12, display: 'flex', gap: 14 }}>
+                        <span style={{ color: 'hsl(var(--muted))' }}>Ganancia: <strong style={{ color: 'hsl(var(--success))' }}>{fmt(Number(form.monto) - Number(form.costoProd))}</strong></span>
+                        <span style={{ color: 'hsl(var(--muted))' }}>Margen: <strong style={{ color: 'hsl(var(--primary))' }}>{Math.round(((Number(form.monto) - Number(form.costoProd)) / Number(form.monto)) * 100)}%</strong></span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="form-group">
                   <label className="form-label">Fecha</label>
                   <input className="form-input" type="date" value={form.fecha} onChange={e => set('fecha', e.target.value)} />

@@ -27,14 +27,15 @@ const emptyForm = () => ({
 const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
 export const PedidosPage = () => {
-  const { pedidos, productos: catalogo } = useStore();
+  const { pedidos, productos: catalogo, config } = useStore();
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
-  const [modal, setModal] = useState(null); // null | 'create' | 'edit' | 'view'
+  const [modal, setModal] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [editId, setEditId] = useState(null);
   const [confirm, setConfirm] = useState(null);
-  const [finanzasDialog, setFinanzasDialog] = useState(null); // { pedido } para confirmar ingreso
+  const [finanzasDialog, setFinanzasDialog] = useState(null);
+  const [finanzasCostoProd, setFinanzasCostoProd] = useState('');
 
   const filtered = pedidos.filter(p => {
     const matchSearch = p.cliente.toLowerCase().includes(search.toLowerCase()) || p.id.toLowerCase().includes(search.toLowerCase());
@@ -87,8 +88,16 @@ export const PedidosPage = () => {
   const updateEstado = (id, nuevoEstado) => {
     const pedido = pedidos.find(p => p.id === id);
     store.updatePedido(id, { estado: nuevoEstado });
-    // Al completar → ofrecer registrar en Finanzas
     if (nuevoEstado === 'completado' && pedido) {
+      // Calcular costo de producción desde el catálogo
+      const costoProdCalculado = (pedido.productos || []).reduce((acc, linea) => {
+        const prod = catalogo.find(c => c.nombre === linea.nombre);
+        if (prod && prod.costoProd) {
+          return acc + (Number(prod.costoProd) * Number(linea.cantidad || 1));
+        }
+        return acc;
+      }, 0);
+      setFinanzasCostoProd(costoProdCalculado > 0 ? String(costoProdCalculado) : '');
       setFinanzasDialog(pedido);
     }
   };
@@ -358,37 +367,73 @@ export const PedidosPage = () => {
           <div className="modal modal-sm">
             <div className="modal-header">
               <h2>💰 Registrar en Finanzas</h2>
+              <button className="btn btn-ghost btn-icon" onClick={() => setFinanzasDialog(null)}>✕</button>
             </div>
-            <div className="modal-body" style={{ textAlign: 'center', padding: '28px 24px' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
-              <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>
-                Pedido de <strong>{finanzasDialog.cliente}</strong> completado
+            <div className="modal-body">
+              <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 10 }}>🎉</div>
+              <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, textAlign: 'center' }}>
+                Pedido <strong>{finanzasDialog.id}</strong> — {finanzasDialog.cliente}
               </p>
-              <p style={{ fontSize: 13, color: 'hsl(var(--muted))', marginBottom: 20 }}>
-                ¿Deseas registrar <strong>{`$${Number(finanzasDialog.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`}</strong> como ingreso en Finanzas?
-              </p>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => setFinanzasDialog(null)}
-                >
-                  No, omitir
-                </button>
+
+              {/* Vista previa de valores */}
+              <div style={{
+                background: 'hsl(var(--bg))', borderRadius: 10, padding: '14px 16px',
+                marginBottom: 16, border: '1px solid hsl(var(--border))',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, color: 'hsl(var(--muted))' }}>💰 Total Bruto</span>
+                  <strong style={{ color: 'hsl(var(--success))' }}>${Number(finanzasDialog.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, color: 'hsl(var(--muted))' }}>🏧 Costo de producción</span>
+                  <input
+                    style={{
+                      width: 110, textAlign: 'right', padding: '3px 8px',
+                      border: '1px solid hsl(var(--border))', borderRadius: 6, fontSize: 13,
+                      background: 'hsl(var(--card))', color: 'hsl(var(--foreground))',
+                    }}
+                    type="number" min="0" step="0.01"
+                    value={finanzasCostoProd}
+                    onChange={e => setFinanzasCostoProd(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                {finanzasCostoProd && Number(finanzasCostoProd) > 0 && (
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted))', textAlign: 'right', marginTop: 4 }}>
+                    Auto-calculado del catálogo de productos
+                  </div>
+                )}
+                <div style={{ borderTop: '1px solid hsl(var(--border))', marginTop: 10, paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>✨ Ganancia estimada</span>
+                  <strong style={{ color: 'hsl(var(--primary))' }}>
+                    ${Math.max(0, Number(finanzasDialog.total) - Number(finanzasCostoProd || 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </strong>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexDirection: 'column' }}>
                 <button
                   className="btn btn-primary"
                   style={{ background: 'hsl(var(--success))', borderColor: 'hsl(var(--success))' }}
                   onClick={() => {
+                    // Usar el nombre del primer producto como categoría
+                    const categoria = finanzasDialog.productos?.[0]?.nombre || 'Ventas';
                     store.addFinanza({
                       tipo: 'ingreso',
                       concepto: `Pedido ${finanzasDialog.id} - ${finanzasDialog.cliente}`,
                       monto: finanzasDialog.total,
+                      costoProd: finanzasCostoProd !== '' ? Number(finanzasCostoProd) : null,
                       fecha: new Date().toISOString().split('T')[0],
-                      categoria: 'Pedido',
+                      categoria,
                     });
                     setFinanzasDialog(null);
+                    setFinanzasCostoProd('');
                   }}
                 >
-                  ✅ Sí, registrar ingreso
+                  ✅ Registrar en Finanzas
+                </button>
+                <button className="btn btn-ghost" onClick={() => { setFinanzasDialog(null); setFinanzasCostoProd(''); }}>
+                  Omitir por ahora
                 </button>
               </div>
             </div>
