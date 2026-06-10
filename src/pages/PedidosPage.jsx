@@ -6,6 +6,7 @@ import { ProductLinesInput } from '../components/ProductLinesInput';
 
 const ESTADOS = ['pendiente', 'en_proceso', 'listo', 'completado', 'cancelado'];
 
+
 // Color del borde izquierdo según estado
 const ROW_COLORS = {
   pendiente:  { borderLeft: '3px solid #F59E0B', background: 'transparent' },
@@ -245,6 +246,8 @@ export const PedidosPage = () => {
                     <input className="form-input" type="date" value={form.fechaEntrega} onChange={e => set('fechaEntrega', e.target.value)} />
                   </div>
                 </div>
+
+                <div className="divider" />
 
                 <div className="divider" />
 

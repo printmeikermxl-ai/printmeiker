@@ -3,7 +3,7 @@ import { useStore, store, THEMES } from '../store/useStore';
 import { useAuth } from '../store/authStore';
 
 export const ConfiguracionPage = () => {
-  const { config, negocioConfig, alertasPedidos, themeColor, pedidos, cotizaciones, productos, finanzas, clientes } = useStore();
+  const { config, themeColor, pedidos, cotizaciones, productos, finanzas, clientes } = useStore();
   const { user } = useAuth();
   const [syncing, setSyncing] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -11,32 +11,18 @@ export const ConfiguracionPage = () => {
 
   // Forms states
   const [formConfig, setFormConfig] = useState({ ...config });
-  const [formAlertas, setFormAlertas] = useState({ ...alertasPedidos });
-  const [formNegocio, setFormNegocio] = useState({ ...negocioConfig });
-  
+
   // Edit mode toggles
   const [editConfig, setEditConfig] = useState(false);
-  const [editNegocio, setEditNegocio] = useState(false);
-  const [editAlertas, setEditAlertas] = useState(false);
 
-  // Sync form states when store state changes (and not in edit mode)
+  // Sync form state when store state changes (and not in edit mode)
   useEffect(() => {
     if (!editConfig) {
       setFormConfig({ ...config });
     }
   }, [config, editConfig]);
 
-  useEffect(() => {
-    if (!editAlertas) {
-      setFormAlertas({ ...alertasPedidos });
-    }
-  }, [alertasPedidos, editAlertas]);
 
-  useEffect(() => {
-    if (!editNegocio) {
-      setFormNegocio({ ...negocioConfig });
-    }
-  }, [negocioConfig, editNegocio]);
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
@@ -85,22 +71,7 @@ export const ConfiguracionPage = () => {
     showSaved();
   };
 
-  const handleSaveAlertas = (e) => {
-    e.preventDefault();
-    store.updateAlertasPedidos({
-      diasAmarillos: Number(formAlertas.diasAmarillos),
-      diasRojos: Number(formAlertas.diasRojos)
-    });
-    setEditAlertas(false);
-    showSaved();
-  };
 
-  const handleSaveNegocio = (e) => {
-    e.preventDefault();
-    store.updateNegocioConfig(formNegocio);
-    setEditNegocio(false);
-    showSaved();
-  };
 
   const showSaved = () => {
     setSaved(true);
@@ -153,29 +124,6 @@ export const ConfiguracionPage = () => {
       setTimeout(() => setConfirmReset(false), 3000);
     }
   };
-
-  const addGasto = () => {
-    setFormNegocio(prev => ({
-      ...prev,
-      gastosFijos: [...prev.gastosFijos, { id: Date.now().toString(), nombre: '', monto: 0, categoria: 'Fijo' }]
-    }));
-  };
-
-  const removeGasto = (id) => {
-    setFormNegocio(prev => ({
-      ...prev,
-      gastosFijos: prev.gastosFijos.filter(g => g.id !== id)
-    }));
-  };
-
-  const updateGasto = (id, field, value) => {
-    setFormNegocio(prev => ({
-      ...prev,
-      gastosFijos: prev.gastosFijos.map(g => g.id === id ? { ...g, [field]: value } : g)
-    }));
-  };
-
-  const totalGastosFijos = (formNegocio.gastosFijos || []).reduce((sum, g) => sum + Number(g.monto || 0), 0);
 
   const inputClass = (isEditing) => `form-input ${!isEditing ? 'disabled' : ''}`;
   const textareaClass = (isEditing) => `form-textarea ${!isEditing ? 'disabled' : ''}`;
@@ -280,10 +228,6 @@ export const ConfiguracionPage = () => {
                     <option value="EUR">🇪🇺 EUR - Euro</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">IVA (%)</label>
-                  <input className={inputClass(editConfig)} disabled={!editConfig} type="number" min="0" max="30" value={formConfig.iva} onChange={e => setFormConfig({...formConfig, iva: e.target.value})} />
-                </div>
               </div>
 
               {/* Cotizaciones */}
@@ -326,142 +270,6 @@ export const ConfiguracionPage = () => {
           </form>
         </div>
 
-        {/* Alertas Pedidos */}
-        <div className="card">
-          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 20 }}>🔔</span>
-              <span className="card-title">Configuración de Pedidos</span>
-            </div>
-            {!editAlertas && (
-              <button className="btn btn-ghost btn-sm" onClick={() => setEditAlertas(true)}>✏️ Editar</button>
-            )}
-          </div>
-          <form onSubmit={handleSaveAlertas}>
-            <div className="card-body">
-              <p className="text-muted" style={{ fontSize: 14, marginBottom: 16 }}>
-                Define cuántos días antes del vencimiento se activa cada alerta de urgencia en las tarjetas de pedido.
-              </p>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label className="form-label">Días para alerta amarilla 🟨</label>
-                  <input type="number" min="2" className={inputClass(editAlertas)} disabled={!editAlertas} required value={formAlertas.diasAmarillos} onChange={e => setFormAlertas({...formAlertas, diasAmarillos: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Días para alerta roja 🟥</label>
-                  <input type="number" min="1" className={inputClass(editAlertas)} disabled={!editAlertas} required value={formAlertas.diasRojos} onChange={e => setFormAlertas({...formAlertas, diasRojos: e.target.value})} />
-                </div>
-              </div>
-              {editAlertas && (
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-                  <button type="button" className="btn btn-ghost" onClick={() => { setFormAlertas(alertasPedidos); setEditAlertas(false); }}>Cancelar</button>
-                  <button type="submit" className="btn btn-primary">Guardar</button>
-                </div>
-              )}
-            </div>
-          </form>
-        </div>
-
-        {/* Configuración del Negocio (Calculadora) */}
-        <div className="card">
-          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 20 }}>🧮</span>
-              <span className="card-title">Configuración del Negocio (Calculadora)</span>
-            </div>
-            {!editNegocio && (
-              <button className="btn btn-ghost btn-sm" onClick={() => setEditNegocio(true)}>✏️ Editar</button>
-            )}
-          </div>
-          <form onSubmit={handleSaveNegocio}>
-            <div className="card-body">
-              <p className="text-muted" style={{ fontSize: 14, marginBottom: 16 }}>
-                Configura los parámetros de tu negocio. Estos valores pre-poblarán la calculadora de precios automáticamente.
-              </p>
-              
-              <div className="form-grid">
-                <div className="form-group">
-                  <label className="form-label">Ingreso mensual deseado ($)</label>
-                  <input type="number" className={inputClass(editNegocio)} disabled={!editNegocio} required value={formNegocio.ingresoMensualDeseado} onChange={e => setFormNegocio({...formNegocio, ingresoMensualDeseado: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Horas productivas / semana</label>
-                  <input type="number" className={inputClass(editNegocio)} disabled={!editNegocio} required value={formNegocio.horasProductivasSemanales} onChange={e => setFormNegocio({...formNegocio, horasProductivasSemanales: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Pedidos actuales al mes</label>
-                  <input type="number" className={inputClass(editNegocio)} disabled={!editNegocio} required value={formNegocio.pedidosActualesMes} onChange={e => setFormNegocio({...formNegocio, pedidosActualesMes: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Capacidad mensual máxima</label>
-                  <input type="number" className={inputClass(editNegocio)} disabled={!editNegocio} required value={formNegocio.capacidadMensual} onChange={e => setFormNegocio({...formNegocio, capacidadMensual: e.target.value})} />
-                </div>
-              </div>
-
-              <div className="divider" />
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <label className="form-label" style={{ margin: 0 }}>Gastos fijos mensuales</label>
-                {editNegocio && (
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={addGasto}>+ Agregar gasto</button>
-                )}
-              </div>
-              
-              {(!formNegocio.gastosFijos || formNegocio.gastosFijos.length === 0) && (
-                <p className="text-muted" style={{ fontSize: 13, padding: '10px 0' }}>No hay gastos fijos configurados.</p>
-              )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {(formNegocio.gastosFijos || []).map((gasto) => (
-                  <div key={gasto.id} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <input type="text" placeholder="Nombre (ej. Renta)" className={inputClass(editNegocio)} disabled={!editNegocio} required style={{ flex: 1 }} value={gasto.nombre} onChange={e => updateGasto(gasto.id, 'nombre', e.target.value)} />
-                    <div style={{ display: 'flex', alignItems: 'center', position: 'relative', width: 140 }}>
-                      <span style={{ position: 'absolute', left: 12, color: 'hsl(var(--muted))' }}>$</span>
-                      <input type="number" placeholder="Monto" className={inputClass(editNegocio)} disabled={!editNegocio} required style={{ width: '100%', paddingLeft: 24 }} value={gasto.monto} onChange={e => updateGasto(gasto.id, 'monto', e.target.value)} />
-                    </div>
-                    {editNegocio && (
-                      <button type="button" className="btn btn-ghost btn-icon" style={{ color: 'hsl(var(--danger))' }} onClick={() => removeGasto(gasto.id)}>✕</button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div style={{ textAlign: 'right', marginTop: 12, fontWeight: 700, fontSize: 15 }}>
-                Total mensual: <span style={{ color: 'hsl(var(--primary))' }}>${totalGastosFijos.toLocaleString()}</span>
-              </div>
-
-              <div className="divider" />
-
-              <div style={{ background: 'hsl(var(--bg))', padding: 16, borderRadius: 12 }}>
-                <h4 style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>Defaults para cotizaciones</h4>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label className="form-label">Anticipo local (%)</label>
-                    <input type="number" max="100" className={inputClass(editNegocio)} disabled={!editNegocio} required value={formNegocio.anticipoLocalPct} onChange={e => setFormNegocio({...formNegocio, anticipoLocalPct: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Anticipo envío nacional (%)</label>
-                    <input type="number" max="100" className={inputClass(editNegocio)} disabled={!editNegocio} required value={formNegocio.anticipoNacionalPct} onChange={e => setFormNegocio({...formNegocio, anticipoNacionalPct: e.target.value})} />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Términos para entregas locales</label>
-                    <textarea className={textareaClass(editNegocio)} disabled={!editNegocio} rows="4" value={formNegocio.terminosLocales} onChange={e => setFormNegocio({...formNegocio, terminosLocales: e.target.value})} />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Términos para envíos nacionales</label>
-                    <textarea className={textareaClass(editNegocio)} disabled={!editNegocio} rows="4" value={formNegocio.terminosNacionales} onChange={e => setFormNegocio({...formNegocio, terminosNacionales: e.target.value})} />
-                  </div>
-                </div>
-              </div>
-
-              {editNegocio && (
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-                  <button type="button" className="btn btn-ghost" onClick={() => { setFormNegocio(negocioConfig); setEditNegocio(false); }}>Cancelar</button>
-                  <button type="submit" className="btn btn-primary">Guardar</button>
-                </div>
-              )}
-            </div>
-          </form>
-        </div>
 
         {/* Tema */}
         <div className="card">

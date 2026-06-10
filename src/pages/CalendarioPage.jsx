@@ -11,6 +11,35 @@ const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Vier
 
 const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
+// Paleta de colores de etiqueta (igual que PedidosPage)
+const COLORES_PEDIDO = [
+  { value: 'rojo',    label: 'Rojo',    hex: '#EF4444' },
+  { value: 'naranja', label: 'Naranja', hex: '#F97316' },
+  { value: 'amarillo',label: 'Amarillo',hex: '#EAB308' },
+  { value: 'verde',   label: 'Verde',   hex: '#22C55E' },
+  { value: 'azul',    label: 'Azul',    hex: '#3B82F6' },
+  { value: 'morado',  label: 'Morado',  hex: '#8B5CF6' },
+  { value: 'rosa',    label: 'Rosa',    hex: '#EC4899' },
+  { value: 'gris',    label: 'Gris',    hex: '#6B7280' },
+];
+
+// Color hex de un pedido (usa etiqueta si tiene, si no usa color de estado)
+const ESTADO_COLORS = {
+  pendiente:  '#F59E0B',
+  en_proceso: '#3B82F6',
+  listo:      '#10B981',
+  completado: '#8B5CF6',
+  cancelado:  '#EF4444',
+};
+
+const getPedidoColor = (pedido) => {
+  if (pedido.color) {
+    const found = COLORES_PEDIDO.find(c => c.value === pedido.color);
+    return found ? found.hex : ESTADO_COLORS[pedido.estado] || '#6B7280';
+  }
+  return ESTADO_COLORS[pedido.estado] || '#6B7280';
+};
+
 export const CalendarioPage = () => {
   const { pedidos } = useStore();
   const today = new Date();
@@ -174,19 +203,27 @@ export const CalendarioPage = () => {
                     <span className="calendar-day-number">{cell.day}</span>
                     <div className="calendar-day-content">
                       {dayPedidos.map(p => {
-                        const isDone = p.estado === 'completado' || p.estado === 'cancelado';
-                        return (
-                          <div
-                            key={p.id}
-                            className={`calendar-order-badge badge-${p.estado}`}
-                            onClick={() => handleOpenPedido(p)}
-                            title={`${p.cliente} - ${p.estado}`}
-                          >
-                            <span className="order-id">{p.id}</span>
-                            <span className="order-client">{p.cliente}</span>
-                          </div>
-                        );
-                      })}
+                          const badgeColor = getPedidoColor(p);
+                          return (
+                            <div
+                              key={p.id}
+                              className={`calendar-order-badge badge-${p.estado}`}
+                              onClick={() => handleOpenPedido(p)}
+                              title={`${p.cliente} - ${p.estado}${p.color ? ' · ' + p.color : ''}`}
+                              style={{
+                                background: `${badgeColor}22`,
+                                borderLeft: `3px solid ${badgeColor}`,
+                                color: 'hsl(var(--foreground))',
+                              }}
+                            >
+                              {p.color && (
+                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: badgeColor, flexShrink: 0, display: 'inline-block', marginRight: 3 }} />
+                              )}
+                              <span className="order-id">{p.id}</span>
+                              <span className="order-client">{p.cliente}</span>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 );

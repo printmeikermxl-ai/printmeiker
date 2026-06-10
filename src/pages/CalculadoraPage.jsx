@@ -97,7 +97,14 @@ export const CalculadoraPage = () => {
   const [nuevoTipo, setNuevoTipo] = useState({ label: '', costo: '' });
   const [mostrarAgregarTipo, setMostrarAgregarTipo] = useState(false);
 
-  /* ── Empaque ─────────────────────────────────────────────────────────────────── */
+
+  /* ── Materiales (lista dinámica, localStorage) ───────────────────────────── */
+  const LS_KEY_MATERIALES = 'calc_materiales';
+  const [materiales, setMateriales] = useState(() => {
+    const saved = loadLS(LS_KEY_MATERIALES, null);
+    if (saved && Array.isArray(saved) && saved.length > 0) return saved;
+    return [{ id: uid(), tipo: 'Bond', tipoPersonalizado: '', modoCompra: 'individual', costoUnitario: 8, costoPaquete: 0, cantidadPaquete: 1, piezasPorUnidad: 1, merma: 0 }];
+  });  /* ── Empaque ─────────────────────────────────────────────────────────────────── */
   const LS_KEY_EMPAQUE = 'calc_empaque';
   const [incluirEmpaque, setIncluirEmpaque] = useState(() => loadLS('calc_incluir_empaque', false));
   const [itemsEmpaque, setItemsEmpaque] = useState(() => {
@@ -122,8 +129,30 @@ export const CalculadoraPage = () => {
   useEffect(() => { localStorage.setItem(LS_KEY_EMPAQUE, JSON.stringify(itemsEmpaque)); }, [itemsEmpaque]);
   useEffect(() => { localStorage.setItem('calc_incluir_empaque', JSON.stringify(incluirEmpaque)); }, [incluirEmpaque]);
   useEffect(() => { localStorage.setItem('calc_tipos_material', JSON.stringify(tiposMaterial)); }, [tiposMaterial]);
+  useEffect(() => { localStorage.setItem(LS_KEY_MATERIALES, JSON.stringify(materiales)); }, [materiales]);
 
-  /* ── CRUD Tipos de material ─────────────────────────────────────────────── */
+/* ── CRUD Materiales ─────────────────────────────────────────────────── */
+  const addMaterial = () => setMateriales(prev => [...prev, {
+    id: uid(), tipo: 'Bond', tipoPersonalizado: '', modoCompra: 'individual',
+    costoUnitario: 8, costoPaquete: 0, cantidadPaquete: 1, piezasPorUnidad: 1, merma: 0,
+  }]);
+
+  const updateMaterial = (id, field, value) =>
+    setMateriales(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
+
+  const deleteMaterial = (id) =>
+    setMateriales(prev => prev.length > 1 ? prev.filter(m => m.id !== id) : prev);
+
+  const handleMaterialTipoChange = (id, tipo) => {
+    const found = tiposMaterial.find(t => t.label === tipo);
+    setMateriales(prev => prev.map(m => m.id === id ? {
+      ...m, tipo,
+      costoUnitario: found ? found.costo : m.costoUnitario,
+      tipoPersonalizado: tipo !== 'Otro' ? '' : m.tipoPersonalizado,
+    } : m));
+  };
+
+    /* ── CRUD Tipos de material ─────────────────────────────────────────────── */
   const addTipoMaterial = () => {
     if (!nuevoTipo.label.trim()) return;
     setTiposMaterial(prev => [...prev, { id: uid(), label: nuevoTipo.label.trim(), costo: Number(nuevoTipo.costo || 0) }]);
@@ -131,9 +160,7 @@ export const CalculadoraPage = () => {
     setMostrarAgregarTipo(false);
   };
   const deleteTipoMaterial = (id) => {
-    const tipo = tiposMaterial.find(t => t.id === id);
     setTiposMaterial(prev => prev.filter(t => t.id !== id));
-    if (tipo && form.materialTipo === tipo.label) set('materialTipo', 'Otro');
   };
 
   /* ── Setters ────────────────────────────────────────────────────────────── */
@@ -161,7 +188,7 @@ export const CalculadoraPage = () => {
 
   /* ── Equipos (Costos Indirectos) CRUD ──────────────────────────────────── */
   const addEquipo = () =>
-    setEquipos(prev => [...prev, { id: uid(), nombre: '', precio: 0, anosVida: 2 }]);
+    setEquipos(prev => [...prev, { id: uid(), nombre: '', precio: 0, anosVida: 2, activo: true }]);
 
   const updateEquipo = (id, field, value) =>
     setEquipos(prev => prev.map(e => e.id === id ? { ...e, [field]: value } : e));
@@ -188,6 +215,7 @@ export const CalculadoraPage = () => {
   const costoFijoPorPieza = piezasMes > 0 ? totalFijosMes / Number(piezasMes) : 0;
 
   const totalDepreciacionMes = equipos.reduce((acc, e) => {
+    if (e.activo === false) return acc;
     const anos = Number(e.anosVida || 1);
     const precio = Number(e.precio || 0);
     return acc + (anos > 0 ? precio / (anos * 12) : 0);
@@ -222,19 +250,79 @@ export const CalculadoraPage = () => {
   const empaqueTotal       = empaqueTotal_pieza + empaqueTotal_lote;
 
 
-  // ── Material: costo efectivo por pieza ─────────────────────────────────
-  const cantidadPaqueteNum = Math.max(1, Number(form.cantidadPaquete || 1));
-  const costoPaqueteNum    = Number(form.costoPaquete || 0);
-  const piezasPorUnidadNum = Math.max(1, Number(form.piezasPorUnidad || 1));
-  const mermaNum           = Number(form.merma || 0);
+  /* ── Resultados Guardados ───────────────────────────────────────────────────── */
+  const LS_KEY_GUARDADOS = 'calc_resultados_guardados';
+  const [resultadosGuardados, setResultadosGuardados] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY_GUARDADOS)) || []; } catch { return []; }
+  });
+  const [editandoId, setEditandoId] = useState(null);
+  const [editandoNombre, setEditandoNombre] = useState('');
+  const [expandedGuardadoId, setExpandedGuardadoId] = useState(null);
+  useEffect(() => {
+    localStorage.setItem(LS_KEY_GUARDADOS, JSON.stringify(resultadosGuardados));
+  }, [resultadosGuardados]);
 
-  // Costo por unidad de material (hoja, rollo, etc.)
-  const costoUnitarioMaterial = form.modoCompra === 'paquete'
-    ? costoPaqueteNum / cantidadPaqueteNum
-    : Number(form.materialCosto || 0);
+  const handleGuardar = () => {
+    const snapshot = {
+      id: Date.now(),
+      nombre: form.producto || `Resultado ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`,
+      fecha: new Date().toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }),
+      // Datos de precio (para mostrar en el desglose)
+      precioFinal, precioUnitario, costoTotal, margenMonto, ivaMonto,
+      cantidadNum, margenGanancia: form.margenGanancia, incluirIva: form.incluirIva,
+      // Desglose calculado
+      materialCostoEfectivo, manoObraNum, costoExtraNum,
+      empaqueTotal_pieza, empaqueTotal_lote,
+      costoFijoPorPieza, costoIndirectoPorPieza,
+      materialLabel,
+      materialesSnapshot: materialesCalc.map(m => ({ nombre: m.nombre, efect: m.efect, merma: m.merma })),
+      // Estado completo para poder recargar
+      formSnapshot: { ...form },
+      materialesFullSnapshot: materiales.map(m => ({ ...m })),
+    };
+    setResultadosGuardados(prev => [snapshot, ...prev].slice(0, 30));
+  };
 
-  // Costo por pieza final producida, incluyendo merma
-  const materialCostoEfectivo = (costoUnitarioMaterial / piezasPorUnidadNum) * (1 + mermaNum / 100);
+
+  const eliminarGuardado = (id) =>
+    setResultadosGuardados(prev => prev.filter(r => r.id !== id));
+
+  const iniciarEdicion = (r) => {
+    setEditandoId(r.id);
+    setEditandoNombre(r.nombre);
+  };
+  const confirmarEdicion = (id) => {
+    setResultadosGuardados(prev => prev.map(r => r.id === id ? { ...r, nombre: editandoNombre } : r));
+    setEditandoId(null);
+  };
+
+  const cargarEnCalculadora = (r) => {
+    if (!r.formSnapshot || !r.materialesFullSnapshot) {
+      alert('Este resultado fue guardado con una versión anterior y no tiene datos completos para recargar.');
+      return;
+    }
+    setForm(r.formSnapshot);
+    setMateriales(r.materialesFullSnapshot);
+    setActiveTab('producto');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ── Materiales: costo efectivo por pieza (suma de todos) ─────────────
+  const materialesCalc = materiales.map(mat => {
+    const cantPaqNum = Math.max(1, Number(mat.cantidadPaquete || 1));
+    const costPaqNum = Number(mat.costoPaquete || 0);
+    const piezasPorUnd = Math.max(1, Number(mat.piezasPorUnidad || 1));
+    const mermaPorc = Number(mat.merma || 0);
+    const costoUnit = mat.modoCompra === 'paquete'
+      ? costPaqNum / cantPaqNum
+      : Number(mat.costoUnitario || 0);
+    const efect = (costoUnit / piezasPorUnd) * (1 + mermaPorc / 100);
+    const nombre = mat.tipo === 'Otro' && mat.tipoPersonalizado ? mat.tipoPersonalizado : (mat.tipo || 'Material');
+    return { ...mat, costoUnit, efect, nombre };
+  });
+  const materialCostoEfectivo = materialesCalc.reduce((s, m) => s + m.efect, 0);
+  const costoUnitarioMaterial = materialesCalc[0]?.costoUnit || 0;
+  const piezasPorUnidadNum = Math.max(1, Number(materiales[0]?.piezasPorUnidad || 1));
 
   // Mano de obra: por pieza (directo) o por hora (total del trabajo ÷ cantidad)
   const manoObraTotal = form.modoManoObra === 'hora'
@@ -257,15 +345,15 @@ export const CalculadoraPage = () => {
   const precioUnitario = cantidadNum > 0 ? precioFinal / cantidadNum : 0;
 
   /* ── Material label ─────────────────────────────────────────────────────── */
-  const materialLabel = form.materialTipo === 'Otro' && form.materialTipoPersonalizado
-    ? form.materialTipoPersonalizado
-    : form.materialTipo;
+  const materialLabel = materialesCalc.map(m => m.nombre).join(' + ');
 
   /* ── Copiar ─────────────────────────────────────────────────────────────── */
   const handleCopiar = () => {
-    const modoStr = form.modoCompra === 'paquete'
-      ? `Paquete (${form.cantidadPaquete} uds · ${fmt(form.costoPaquete)})`
-      : 'Individual';
+    const modoStr = materiales.map(m =>
+      m.modoCompra === 'paquete'
+        ? `${m.tipo} (Paquete ${m.cantidadPaquete}u · ${fmt(m.costoPaquete)})`
+        : `${m.tipo} (Individual)`
+    ).join(', ');
     const manoObraStr = form.modoManoObra === 'hora'
       ? `${form.horasTrabajo}h × $${form.costoHora}/h = ${fmt(manoObraTotal)}`
       : `$${form.costoManoObra}/pz`;
@@ -274,8 +362,8 @@ export const CalculadoraPage = () => {
       `Producto: ${form.producto || 'Sin nombre'}`,
       `Cantidad: ${cantidadNum}`,
       `Material: ${materialLabel} [${modoStr}]`,
-      form.piezasPorUnidad > 1 ? `Piezas por unidad: ${form.piezasPorUnidad}` : '',
-      form.merma > 0 ? `Merma: ${form.merma}%` : '',
+      materiales.some(m => m.piezasPorUnidad > 1) ? `Piezas por unidad: varios` : '',
+      materiales.some(m => m.merma > 0) ? `Merma: aplicada por material` : '',
       ``,
       `Costo material:        ${fmt(materialCostoEfectivo * cantidadNum)}`,
       `Mano de obra [${manoObraStr}]:  ${fmt(manoObraNum * cantidadNum)}`,
@@ -357,88 +445,198 @@ export const CalculadoraPage = () => {
           {/* ── TAB: Materiales ─────────────────────────────────────────────── */}
           {activeTab === 'materiales' && (
             <div className="card calc-panel">
-              <div className="card-header">
-                <span style={{ fontSize: 18 }}>📦</span>
-                <span className="card-title">Materiales y mano de obra</span>
+              <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 18 }}>📦</span>
+                  <span className="card-title">Materiales y mano de obra</span>
+                </div>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={addMaterial}>
+                  ＋ Agregar material
+                </button>
               </div>
               <div className="card-body">
 
-                {/* ── Tipo de material (dinámico) ──────────────────────── */}
-                <div className="form-group">
+                {/* Lista dinámica de materiales */}
+                {materiales.map((mat, matIdx) => (
+                  <div key={mat.id} style={{
+                    border: '2px solid hsl(var(--border))',
+                    borderRadius: 12, padding: '14px 16px', marginBottom: 14,
+                    background: 'hsl(var(--bg))', animation: 'fadeIn 0.2s ease',
+                  }}>
+                    {/* Cabecera: número + selector de tipo + eliminar */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                      <div style={{
+                        width: 24, height: 24, borderRadius: '50%',
+                        background: 'hsl(var(--primary))', color: '#fff',
+                        fontSize: 12, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      }}>{matIdx + 1}</div>
+                      <select className="form-select" style={{ flex: 1 }}
+                        value={mat.tipo}
+                        onChange={e => handleMaterialTipoChange(mat.id, e.target.value)}>
+                        {tiposMaterial.map(t => (
+                          <option key={t.id} value={t.label}>{t.label}</option>
+                        ))}
+                        <option value="Otro">Otro (personalizado)</option>
+                      </select>
+                      {materiales.length > 1 && (
+                        <button type="button" className="btn btn-ghost btn-sm btn-icon"
+                          style={{ color: 'hsl(var(--danger))', flexShrink: 0 }}
+                          onClick={() => deleteMaterial(mat.id)} title="Eliminar material">✕</button>
+                      )}
+                    </div>
+
+                    {mat.tipo === 'Otro' && (
+                      <div className="form-group" style={{ animation: 'fadeIn 0.2s ease', marginBottom: 10 }}>
+                        <input className="form-input" value={mat.tipoPersonalizado}
+                          onChange={e => updateMaterial(mat.id, 'tipoPersonalizado', e.target.value)}
+                          placeholder="Especificar material (ej: Acrílico, Transfer...)" />
+                      </div>
+                    )}
+
+                    {/* Modo de compra */}
+                    <div className="form-group">
+                      <label className="form-label">Modo de compra</label>
+                      <div className="modo-compra-toggle">
+                        <button type="button"
+                          className={`modo-btn${mat.modoCompra === 'individual' ? ' active' : ''}`}
+                          onClick={() => updateMaterial(mat.id, 'modoCompra', 'individual')}>
+                          📄 Individual
+                        </button>
+                        <button type="button"
+                          className={`modo-btn${mat.modoCompra === 'paquete' ? ' active' : ''}`}
+                          onClick={() => updateMaterial(mat.id, 'modoCompra', 'paquete')}>
+                          📦 Paquete
+                        </button>
+                      </div>
+                    </div>
+
+                    {mat.modoCompra === 'individual' && (
+                      <div className="form-group" style={{ animation: 'fadeIn 0.2s ease' }}>
+                        <label className="form-label">Costo por unidad de material ($)</label>
+                        <input className="form-input" type="number" min="0" step="0.01"
+                          value={mat.costoUnitario}
+                          onChange={e => updateMaterial(mat.id, 'costoUnitario', e.target.value)}
+                          placeholder="Ej: 2.00" />
+                      </div>
+                    )}
+
+                    {mat.modoCompra === 'paquete' && (
+                      <div style={{ animation: 'fadeIn 0.2s ease' }}>
+                        <div className="form-grid">
+                          <div className="form-group">
+                            <label className="form-label">Costo del paquete ($)</label>
+                            <input className="form-input" type="number" min="0" step="0.01"
+                              value={mat.costoPaquete}
+                              onChange={e => updateMaterial(mat.id, 'costoPaquete', e.target.value)}
+                              placeholder="Ej: 80.00" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Unidades en el paquete</label>
+                            <input className="form-input" type="number" min="1" step="1"
+                              value={mat.cantidadPaquete}
+                              onChange={e => updateMaterial(mat.id, 'cantidadPaquete', e.target.value)}
+                              placeholder="Ej: 100" />
+                          </div>
+                        </div>
+                        {Number(mat.cantidadPaquete) > 0 && (
+                          <div className="calc-hint" style={{ marginBottom: 10 }}>
+                            Costo por unidad: <strong>{fmt(Number(mat.costoPaquete) / Number(mat.cantidadPaquete))}</strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Rendimiento del material */}
+                    <div className="mat-section-title" style={{ marginTop: 6 }}>⚙️ Rendimiento del material</div>
+                    <div className="form-grid">
+                      <div className="form-group">
+                        <label className="form-label">Piezas producibles por unidad</label>
+                        <input className="form-input" type="number" min="1" step="1"
+                          value={mat.piezasPorUnidad}
+                          onChange={e => updateMaterial(mat.id, 'piezasPorUnidad', e.target.value)}
+                          placeholder="Ej: 12" />
+                        <span className="calc-hint">Ej: 12 tarjetas por hoja</span>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">
+                          Desperdicio / merma: <strong style={{ color: 'hsl(var(--danger))' }}>{mat.merma}%</strong>
+                        </label>
+                        <input type="range" min="0" max="50" step="1"
+                          value={mat.merma}
+                          onChange={e => updateMaterial(mat.id, 'merma', e.target.value)}
+                          style={{ width: '100%', accentColor: 'hsl(var(--danger))' }} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'hsl(var(--muted))' }}>
+                          <span>0%</span><span>10%</span><span>20%</span><span>30%</span><span>40%</span><span>50%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Resultado de este material */}
+                    <div className="mat-result-box" style={{ marginTop: 6 }}>
+                      <div className="mat-result-row">
+                        <span>Costo/pieza{Number(mat.merma) > 0 ? ' (con merma)' : ''}</span>
+                        <strong>{fmt(materialesCalc[matIdx]?.efect || 0)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Total si hay más de 1 material */}
+                {materiales.length > 1 && (
+                  <div className="mat-result-box" style={{ marginBottom: 16, background: 'hsl(var(--primary) / 0.06)', border: '2px solid hsl(var(--primary) / 0.3)' }}>
+                    <div className="mat-result-row">
+                      <span>💰 Total materiales / pieza</span>
+                      <strong style={{ color: 'hsl(var(--primary))' }}>{fmt(materialCostoEfectivo)}</strong>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tipos de material guardados */}
+                <div style={{ marginBottom: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <label className="form-label" style={{ margin: 0 }}>Tipo de material</label>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
+                    <span style={{ fontSize: 12, color: 'hsl(var(--muted))', fontWeight: 600 }}>TIPOS GUARDADOS</span>
+                    <button type="button" className="btn btn-ghost btn-sm"
                       style={{ fontSize: 12, padding: '2px 8px' }}
-                      onClick={() => setMostrarAgregarTipo(v => !v)}
-                    >
+                      onClick={() => setMostrarAgregarTipo(v => !v)}>
                       {mostrarAgregarTipo ? '✕ Cancelar' : '＋ Agregar tipo'}
                     </button>
                   </div>
-                  <select
-                    className="form-select"
-                    value={form.materialTipo}
-                    onChange={e => handleMaterialChange(e.target.value)}
-                  >
-                    {tiposMaterial.map(t => (
-                      <option key={t.id} value={t.label}>{t.label}</option>
-                    ))}
-                    <option value="Otro">Otro (personalizado)</option>
-                  </select>
-
-                  {/* Chips de tipos existentes con opción de eliminar */}
                   {tiposMaterial.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {tiposMaterial.map(t => (
                         <div key={t.id} style={{
                           display: 'flex', alignItems: 'center', gap: 4,
-                          background: form.materialTipo === t.label ? 'hsl(var(--primary))' : 'hsl(var(--bg))',
-                          color: form.materialTipo === t.label ? '#fff' : 'hsl(var(--foreground))',
+                          background: 'hsl(var(--bg))', color: 'hsl(var(--foreground))',
                           border: '1px solid hsl(var(--border))',
                           borderRadius: 99, padding: '3px 10px', fontSize: 12, fontWeight: 500,
-                          cursor: 'pointer',
-                        }} onClick={() => handleMaterialChange(t.label)}>
+                        }}>
                           <span>{t.label}</span>
                           <span style={{ fontSize: 10, opacity: 0.7 }}>${t.costo}</span>
-                          <button
-                            type="button"
-                            style={{
-                              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                              color: form.materialTipo === t.label ? '#fff' : 'hsl(var(--danger))',
-                              fontSize: 12, lineHeight: 1, marginLeft: 2,
-                            }}
-                            onClick={e => { e.stopPropagation(); deleteTipoMaterial(t.id); }}
-                            title={`Eliminar ${t.label}`}
-                          >✕</button>
+                          <button type="button" style={{
+                            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                            color: 'hsl(var(--danger))', fontSize: 12, lineHeight: 1, marginLeft: 2,
+                          }} onClick={() => deleteTipoMaterial(t.id)}>✕</button>
                         </div>
                       ))}
                     </div>
                   )}
-
-                  {/* Formulario para agregar nuevo tipo */}
                   {mostrarAgregarTipo && (
                     <div style={{ marginTop: 10, padding: 12, border: '1.5px dashed hsl(var(--primary))', borderRadius: 10, animation: 'fadeIn 0.2s ease' }}>
                       <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>➕ Nuevo tipo de material</div>
                       <div className="form-grid">
                         <div className="form-group">
                           <label className="form-label">Nombre</label>
-                          <input
-                            className="form-input"
-                            value={nuevoTipo.label}
+                          <input className="form-input" value={nuevoTipo.label}
                             onChange={e => setNuevoTipo(p => ({ ...p, label: e.target.value }))}
-                            placeholder="Ej: Papel fotográfico"
-                          />
+                            placeholder="Ej: Papel fotográfico" />
                         </div>
                         <div className="form-group">
                           <label className="form-label">Costo sugerido ($)</label>
-                          <input
-                            className="form-input"
-                            type="number" min="0" step="0.01"
+                          <input className="form-input" type="number" min="0" step="0.01"
                             value={nuevoTipo.costo}
                             onChange={e => setNuevoTipo(p => ({ ...p, costo: e.target.value }))}
-                            placeholder="0.00"
-                          />
+                            placeholder="0.00" />
                         </div>
                       </div>
                       <button type="button" className="btn btn-primary btn-sm" onClick={addTipoMaterial}>
@@ -448,160 +646,20 @@ export const CalculadoraPage = () => {
                   )}
                 </div>
 
-                {form.materialTipo === 'Otro' && (
-                  <div className="form-group" style={{ animation: 'fadeIn 0.25s ease' }}>
-                    <label className="form-label">Especificar material</label>
-                    <input
-                      className="form-input"
-                      value={form.materialTipoPersonalizado}
-                      onChange={e => set('materialTipoPersonalizado', e.target.value)}
-                      placeholder="Ej: Acrílico, Madera, Vinil reflejante..."
-                    />
-                  </div>
-                )}
-
-                {/* ── Modo de compra ─────────────────────────────────────── */}
-                <div className="form-group">
-                  <label className="form-label">Modo de compra</label>
-                  <div className="modo-compra-toggle">
-                    <button
-                      type="button"
-                      className={`modo-btn${form.modoCompra === 'individual' ? ' active' : ''}`}
-                      onClick={() => set('modoCompra', 'individual')}
-                    >
-                      📄 Individual
-                    </button>
-                    <button
-                      type="button"
-                      className={`modo-btn${form.modoCompra === 'paquete' ? ' active' : ''}`}
-                      onClick={() => set('modoCompra', 'paquete')}
-                    >
-                      📦 Paquete
-                    </button>
-                  </div>
-                </div>
-
-                {/* ── Individual: costo directo por unidad ─────────────── */}
-                {form.modoCompra === 'individual' && (
-                  <div className="form-group" style={{ animation: 'fadeIn 0.2s ease' }}>
-                    <label className="form-label">Costo por unidad de material</label>
-                    <input
-                      className="form-input"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.materialCosto}
-                      onChange={e => set('materialCosto', e.target.value)}
-                      placeholder="Ej: 2.00 (costo de 1 hoja)"
-                    />
-                  </div>
-                )}
-
-                {/* ── Paquete: precio + cantidad ─────────────────────── */}
-                {form.modoCompra === 'paquete' && (
-                  <div style={{ animation: 'fadeIn 0.2s ease' }}>
-                    <div className="form-grid">
-                      <div className="form-group">
-                        <label className="form-label">Costo del paquete ($)</label>
-                        <input
-                          className="form-input"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={form.costoPaquete}
-                          onChange={e => set('costoPaquete', e.target.value)}
-                          placeholder="Ej: 80.00"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Unidades en el paquete</label>
-                        <input
-                          className="form-input"
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={form.cantidadPaquete}
-                          onChange={e => set('cantidadPaquete', e.target.value)}
-                          placeholder="Ej: 100 hojas"
-                        />
-                      </div>
-                    </div>
-                    {Number(form.cantidadPaquete) > 0 && (
-                      <div className="calc-hint" style={{ marginBottom: 12 }}>
-                        Costo por unidad: <strong>{fmt(Number(form.costoPaquete) / Number(form.cantidadPaquete))}</strong>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Uso por trabajo (piezas por unidad de material) ── */}
-                <div className="mat-section-title">⚙️ Rendimiento del material</div>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label className="form-label">Piezas producibles por unidad</label>
-                    <input
-                      className="form-input"
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={form.piezasPorUnidad}
-                      onChange={e => set('piezasPorUnidad', e.target.value)}
-                      placeholder="Ej: 12"
-                    />
-                    <span className="calc-hint">Ej: 12 tarjetas por hoja de papel</span>
-                  </div>
-
-                  {/* ── Desperdicio / Merma ─────────────────────────── */}
-                  <div className="form-group">
-                    <label className="form-label">
-                      Desperdicio / merma: <strong style={{ color: 'hsl(var(--danger))' }}>{form.merma}%</strong>
-                    </label>
-                    <input
-                      type="range"
-                      min="0" max="50" step="1"
-                      value={form.merma}
-                      onChange={e => set('merma', e.target.value)}
-                      style={{ width: '100%', accentColor: 'hsl(var(--danger))' }}
-                    />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'hsl(var(--muted))' }}>
-                      <span>0%</span><span>10%</span><span>20%</span><span>30%</span><span>40%</span><span>50%</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Resultado calculado de material ─────────────────── */}
-                <div className="mat-result-box">
-                  <div className="mat-result-row">
-                    <span>Costo material por pieza{form.merma > 0 ? ' (con merma)' : ''}</span>
-                    <strong>{fmt(materialCostoEfectivo)}</strong>
-                  </div>
-                  {form.merma > 0 && (
-                    <div className="mat-result-row" style={{ fontSize: 12, opacity: 0.7 }}>
-                      <span>Sin merma</span>
-                      <span>{fmt(costoUnitarioMaterial / piezasPorUnidadNum)}</span>
-                    </div>
-                  )}
-                </div>
-
                 <div className="divider" />
                 <div className="mat-section-title">👷 Mano de obra</div>
 
-                {/* ── Toggle modo mano de obra ────────────────────────── */}
                 <div className="form-group">
                   <label className="form-label">Modo de cálculo</label>
                   <div className="modo-compra-toggle">
-                    <button
-                      type="button"
+                    <button type="button"
                       className={`modo-btn${form.modoManoObra === 'pieza' ? ' active' : ''}`}
-                      onClick={() => set('modoManoObra', 'pieza')}
-                    >
+                      onClick={() => set('modoManoObra', 'pieza')}>
                       📦 Por pieza
                     </button>
-                    <button
-                      type="button"
+                    <button type="button"
                       className={`modo-btn${form.modoManoObra === 'hora' ? ' active' : ''}`}
-                      onClick={() => set('modoManoObra', 'hora')}
-                    >
+                      onClick={() => set('modoManoObra', 'hora')}>
                       ⏰ Por hora
                     </button>
                   </div>
@@ -610,12 +668,9 @@ export const CalculadoraPage = () => {
                 {form.modoManoObra === 'pieza' && (
                   <div className="form-group" style={{ animation: 'fadeIn 0.2s ease' }}>
                     <label className="form-label">Mano de obra (por pieza)</label>
-                    <input
-                      className="form-input"
-                      type="number" min="0" step="0.01"
+                    <input className="form-input" type="number" min="0" step="0.01"
                       value={form.costoManoObra}
-                      onChange={e => set('costoManoObra', e.target.value)}
-                    />
+                      onChange={e => set('costoManoObra', e.target.value)} />
                   </div>
                 )}
 
@@ -625,16 +680,12 @@ export const CalculadoraPage = () => {
                       <div className="form-group">
                         <label className="form-label">Costo por hora ($)</label>
                         <input className="form-input" type="number" min="0" step="0.01"
-                          value={form.costoHora} onChange={e => set('costoHora', e.target.value)}
-                          placeholder="Ej: 30"
-                        />
+                          value={form.costoHora} onChange={e => set('costoHora', e.target.value)} placeholder="Ej: 30" />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Horas de trabajo</label>
                         <input className="form-input" type="number" min="0" step="0.5"
-                          value={form.horasTrabajo} onChange={e => set('horasTrabajo', e.target.value)}
-                          placeholder="Ej: 2"
-                        />
+                          value={form.horasTrabajo} onChange={e => set('horasTrabajo', e.target.value)} placeholder="Ej: 2" />
                       </div>
                     </div>
                     <div className="mat-result-box" style={{ margin: '0 0 12px' }}>
@@ -649,20 +700,18 @@ export const CalculadoraPage = () => {
                   </div>
                 )}
 
-                {/* ── Costos extra ──────────────────────────────────────── */}
+                {/* Costos extra */}
                 <div className="form-group">
                   <label className="form-label">Costos extra (total del pedido)</label>
-                  <input
-                    className="form-input"
-                    type="number" min="0" step="0.01"
+                  <input className="form-input" type="number" min="0" step="0.01"
                     value={form.costoExtra}
                     onChange={e => set('costoExtra', e.target.value)}
-                    placeholder="Envío, diseño..."
-                  />
+                    placeholder="Envío, diseño..." />
                 </div>
               </div>
             </div>
           )}
+
 
           {/* ── TAB: Empaque ────────────────────────────────────────────────────── */}
           {activeTab === 'empaque' && (
@@ -1010,6 +1059,7 @@ export const CalculadoraPage = () => {
                     <table className="deprec-table">
                       <thead>
                         <tr>
+                          <th style={{ width: 44, textAlign: 'center' }}>Activo</th>
                           <th>Equipo</th>
                           <th>Precio total</th>
                           <th>Años de vida</th>
@@ -1027,7 +1077,26 @@ export const CalculadoraPage = () => {
                           const costMes = costAnio / 12;
                           const costDia = costMes / 30;
                           return (
-                            <tr key={e.id}>
+                            <tr key={e.id} style={{ opacity: e.activo === false ? 0.4 : 1, transition: 'opacity 0.2s' }}>
+                              <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => updateEquipo(e.id, 'activo', e.activo !== false ? false : true)}
+                                  title={e.activo === false ? 'Activar' : 'Desactivar'}
+                                  style={{
+                                    width: 34, height: 20, borderRadius: 99, border: 'none', cursor: 'pointer',
+                                    background: e.activo === false ? 'hsl(var(--border))' : 'hsl(var(--primary))',
+                                    position: 'relative', display: 'inline-block', transition: 'background 0.2s',
+                                  }}
+                                >
+                                  <span style={{
+                                    position: 'absolute', top: 3,
+                                    left: e.activo === false ? 3 : 15,
+                                    width: 14, height: 14, borderRadius: '50%', background: '#fff',
+                                    transition: 'left 0.2s', display: 'block',
+                                  }} />
+                                </button>
+                              </td>
                               <td>
                                 <input
                                   className="form-input deprec-input"
@@ -1146,7 +1215,7 @@ export const CalculadoraPage = () => {
                   RESUMEN DE COSTOS POR PIEZA
                 </div>
                 <div className="precio-breakdown">
-                  <div className="precio-row"><span>Material{form.merma > 0 ? ` (+${form.merma}% merma)` : ''}</span><span>{fmt(materialCostoEfectivo)}</span></div>
+                  <div className="precio-row"><span>Material{materialesCalc.some(m=>m.merma>0) ? ' (con merma)' : ''}</span><span>{fmt(materialCostoEfectivo)}</span></div>
                   <div className="precio-row"><span>Mano de obra{form.modoManoObra === 'hora' ? ' (total ÷ pzs)' : ''}</span><span>{fmt(manoObraNum)}</span></div>
                   {empaqueTotal_pieza > 0 && (
                     <div className="precio-row"><span>📦 Empaque por pieza</span><span>{fmt(empaqueTotal_pieza / cantidadNum)}</span></div>
@@ -1192,7 +1261,7 @@ export const CalculadoraPage = () => {
 
             <div className="calc-breakdown">
               <div className="calc-row">
-                <span>Material ({materialLabel}){form.merma > 0 ? ` +${form.merma}%` : ''} × {cantidadNum}</span>
+                <span>Material ({materialLabel}) × {cantidadNum}</span>
                 <span>{fmt(materialCostoEfectivo * cantidadNum)}</span>
               </div>
               <div className="calc-row">
@@ -1251,10 +1320,16 @@ export const CalculadoraPage = () => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
-            <button className="btn btn-primary w-full" onClick={handleCopiar}>
-              📋 Copiar resultado
+            {/* Botón principal: GUARDAR */}
+            <button
+              className="btn btn-primary w-full"
+              onClick={handleGuardar}
+              style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.04em', padding: '12px 0' }}
+            >
+              💾 GUARDAR RESULTADO
             </button>
 
+            {/* Resumen rápido */}
             <div className="card" style={{ padding: 16 }}>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>💡 Resumen</div>
               <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1284,9 +1359,167 @@ export const CalculadoraPage = () => {
                 </div>
               </div>
             </div>
+
+            {/* Resultados guardados */}
+            {resultadosGuardados.length > 0 && (
+              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', borderBottom: '1px solid hsl(var(--border))',
+                  background: 'hsl(var(--primary) / 0.06)',
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>📌</span>
+                    <span>RESULTADOS GUARDADOS</span>
+                    <span style={{
+                      background: 'hsl(var(--primary))', color: '#fff',
+                      borderRadius: 99, fontSize: 11, fontWeight: 700,
+                      padding: '1px 7px', marginLeft: 2,
+                    }}>{resultadosGuardados.length}</span>
+                  </div>
+                </div>
+                <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+                  {resultadosGuardados.map(r => (
+                    <div key={r.id} style={{
+                      borderBottom: '1px solid hsl(var(--border))',
+                      padding: '10px 16px',
+                    }}>
+                      {/* Encabezado del resultado guardado */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        {editandoId === r.id ? (
+                          <>
+                            <input
+                              className="form-input"
+                              style={{ flex: 1, fontSize: 12, padding: '4px 8px' }}
+                              value={editandoNombre}
+                              onChange={e => setEditandoNombre(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') confirmarEdicion(r.id); if (e.key === 'Escape') setEditandoId(null); }}
+                              autoFocus
+                            />
+                            <button className="btn btn-primary btn-sm" style={{ padding: '3px 10px', fontSize: 12 }}
+                              onClick={() => confirmarEdicion(r.id)}>✓</button>
+                            <button className="btn btn-ghost btn-sm" style={{ padding: '3px 8px', fontSize: 12 }}
+                              onClick={() => setEditandoId(null)}>×</button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer',
+                                fontWeight: 600, fontSize: 13, color: 'hsl(var(--foreground))' }}
+                              onClick={() => setExpandedGuardadoId(expandedGuardadoId === r.id ? null : r.id)}
+                            >
+                              {r.nombre}
+                              <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.6, marginLeft: 6 }}>{r.fecha}</span>
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm btn-icon"
+                              title="Cargar en calculadora"
+                              style={{ opacity: 0.85, color: 'hsl(var(--primary))' }}
+                              onClick={() => cargarEnCalculadora(r)}
+                            >
+                              🔄
+                            </button>
+                            <button className="btn btn-ghost btn-sm btn-icon" title="Editar nombre"
+                              style={{ opacity: 0.7 }} onClick={() => iniciarEdicion(r)}>✏️</button>
+                            <button className="btn btn-ghost btn-sm btn-icon" title="Eliminar"
+                              style={{ color: 'hsl(var(--danger))', opacity: 0.8 }}
+                              onClick={() => eliminarGuardado(r.id)}>🗑️</button>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Precio destacado siempre visible */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>
+                          {r.cantidadNum} pz · {r.materialLabel}
+                        </span>
+                        <span style={{ fontWeight: 800, fontSize: 16, color: 'hsl(var(--primary))' }}>
+                          {fmt(r.precioFinal)}
+                        </span>
+                      </div>
+
+                      {/* Desglose expandible */}
+                      {expandedGuardadoId === r.id && (
+                        <div style={{ marginTop: 10, animation: 'fadeIn 0.2s ease' }}>
+                          <div style={{
+                            background: 'hsl(var(--primary) / 0.06)', borderRadius: 8,
+                            padding: '10px 12px', fontSize: 12,
+                            display: 'flex', flexDirection: 'column', gap: 4,
+                          }}>
+                            {r.materialesSnapshot?.map((m, i) => (
+                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ opacity: 0.8 }}>{m.nombre}{m.merma > 0 ? ` +${m.merma}%` : ''} × {r.cantidadNum}</span>
+                                <span>{fmt(m.efect * r.cantidadNum)}</span>
+                              </div>
+                            ))}
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ opacity: 0.8 }}>Mano de obra × {r.cantidadNum}</span>
+                              <span>{fmt(r.manoObraNum * r.cantidadNum)}</span>
+                            </div>
+                            {r.costoExtraNum > 0 && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ opacity: 0.8 }}>Costos extra</span>
+                                <span>{fmt(r.costoExtraNum)}</span>
+                              </div>
+                            )}
+                            {r.empaqueTotal_pieza > 0 && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ opacity: 0.8 }}>📦 Empaque × {r.cantidadNum}</span>
+                                <span>{fmt(r.empaqueTotal_pieza)}</span>
+                              </div>
+                            )}
+                            {r.empaqueTotal_lote > 0 && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ opacity: 0.8 }}>📦 Empaque/lote</span>
+                                <span>{fmt(r.empaqueTotal_lote)}</span>
+                              </div>
+                            )}
+                            {r.costoFijoPorPieza > 0 && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ opacity: 0.8 }}>Fijos dist. × {r.cantidadNum}</span>
+                                <span>{fmt(r.costoFijoPorPieza * r.cantidadNum)}</span>
+                              </div>
+                            )}
+                            {r.costoIndirectoPorPieza > 0 && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ opacity: 0.8 }}>Depreciación dist. × {r.cantidadNum}</span>
+                                <span>{fmt(r.costoIndirectoPorPieza * r.cantidadNum)}</span>
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid hsl(var(--border))', paddingTop: 4, marginTop: 2 }}>
+                              <span style={{ opacity: 0.8 }}>Subtotal producción</span>
+                              <span>{fmt(r.costoTotal)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ opacity: 0.8 }}>Ganancia ({r.margenGanancia}%)</span>
+                              <span style={{ color: 'hsl(var(--success))' }}>{fmt(r.margenMonto)}</span>
+                            </div>
+                            {r.incluirIva && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ opacity: 0.8 }}>IVA</span>
+                                <span>{fmt(r.ivaMonto)}</span>
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 13, marginTop: 4 }}>
+                              <span>PRECIO FINAL</span>
+                              <span style={{ color: 'hsl(var(--primary))' }}>{fmt(r.precioFinal)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.75 }}>
+                              <span>Por unidad</span>
+                              <span>{fmt(r.precioUnitario)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 };
+
