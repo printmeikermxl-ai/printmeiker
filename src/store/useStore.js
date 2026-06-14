@@ -65,6 +65,17 @@ const seedClientes = [];
 
 const seedFinanzas = [];
 
+// Categorías de productos por defecto
+const seedCategorias = [
+  { id: 'cat-1', nombre: 'Impresión',   emoji: '🖨️', color: '#DBEAFE', text: '#1E40AF' },
+  { id: 'cat-2', nombre: 'Banners',     emoji: '🎌', color: '#D1FAE5', text: '#065F46' },
+  { id: 'cat-3', nombre: 'Sublimación', emoji: '🌡️', color: '#FEE2E2', text: '#991B1B' },
+  { id: 'cat-4', nombre: 'Bordado',     emoji: '🧵', color: '#FCE7F3', text: '#9D174D' },
+  { id: 'cat-5', nombre: 'Diseño',      emoji: '🎨', color: '#E8D5FF', text: '#6B21A8' },
+  { id: 'cat-6', nombre: 'Digital',     emoji: '💻', color: '#FEF9C3', text: '#854D0E' },
+  { id: 'cat-7', nombre: 'Otro',        emoji: '📦', color: '#F3F4F6', text: '#374151' },
+];
+
 // ── main store hook ───────────────────────────────────────────────────────────
 let listeners = [];
 let state = {
@@ -73,6 +84,8 @@ let state = {
   cotizaciones: load('sep_cotizaciones', seedCotizaciones),
   finanzas: load('sep_finanzas', seedFinanzas),
   clientes: load('sep_clientes', seedClientes),
+  etiquetasPersonalizadas: load('sep_etiquetas', []),
+  categoriasProducto: load('sep_categorias_producto', seedCategorias),
   config: load('sep_config', {
     appName: 'PrintMeiker',
     profilePhoto: '',
@@ -201,6 +214,44 @@ export const store = {
     setState({ clientes });
   },
 
+  // ── etiquetas personalizadas ──
+  addEtiqueta: (etiqueta) => {
+    const etiquetasPersonalizadas = [...state.etiquetasPersonalizadas, { ...etiqueta, id: 'ET' + Date.now().toString().slice(-5) }];
+    save('sep_etiquetas', etiquetasPersonalizadas);
+    setState({ etiquetasPersonalizadas });
+  },
+  updateEtiqueta: (id, etiqueta) => {
+    const etiquetasPersonalizadas = state.etiquetasPersonalizadas.map(x => x.id === id ? { ...x, ...etiqueta } : x);
+    save('sep_etiquetas', etiquetasPersonalizadas);
+    setState({ etiquetasPersonalizadas });
+  },
+  deleteEtiqueta: (id) => {
+    const etiquetasPersonalizadas = state.etiquetasPersonalizadas.filter(x => x.id !== id);
+    save('sep_etiquetas', etiquetasPersonalizadas);
+    setState({ etiquetasPersonalizadas });
+  },
+
+  // ── categorias producto ──
+  addCategoriaProducto: (cat) => {
+    const categoriasProducto = [...state.categoriasProducto, { ...cat, id: 'cat-' + Date.now().toString().slice(-6) }];
+    save('sep_categorias_producto', categoriasProducto);
+    setState({ categoriasProducto });
+  },
+  updateCategoriaProducto: (id, cat) => {
+    const categoriasProducto = state.categoriasProducto.map(x => x.id === id ? { ...x, ...cat } : x);
+    save('sep_categorias_producto', categoriasProducto);
+    setState({ categoriasProducto });
+  },
+  deleteCategoriaProducto: (id) => {
+    const categoriasProducto = state.categoriasProducto.filter(x => x.id !== id);
+    save('sep_categorias_producto', categoriasProducto);
+    setState({ categoriasProducto });
+  },
+  resetCategoriasProducto: () => {
+    save('sep_categorias_producto', seedCategorias);
+    setState({ categoriasProducto: seedCategorias });
+  },
+
   // ── config ──
   updateConfig: (c) => {
     const config = { ...state.config, ...c };
@@ -244,16 +295,18 @@ export const store = {
       document.documentElement.classList.remove('dark-theme');
     }
     const newState = {
-      productos:     load('sep_productos', seedProductos),
-      pedidos:       load('sep_pedidos', seedPedidos),
-      cotizaciones:  load('sep_cotizaciones', seedCotizaciones),
-      finanzas:      load('sep_finanzas', seedFinanzas),
-      clientes:      load('sep_clientes', seedClientes),
-      config:        load('sep_config', state.config),
-      negocioConfig: load('sep_negocio_config', state.negocioConfig),
-      alertasPedidos:load('sep_alertas_pedidos', state.alertasPedidos),
-      themeColor:    load('sep_theme', '#1f51d3'),
-      darkMode:      isDark,
+      productos:              load('sep_productos', seedProductos),
+      pedidos:                load('sep_pedidos', seedPedidos),
+      cotizaciones:           load('sep_cotizaciones', seedCotizaciones),
+      finanzas:               load('sep_finanzas', seedFinanzas),
+      clientes:               load('sep_clientes', seedClientes),
+      etiquetasPersonalizadas:load('sep_etiquetas', []),
+      categoriasProducto:     load('sep_categorias_producto', seedCategorias),
+      config:                 load('sep_config', state.config),
+      negocioConfig:          load('sep_negocio_config', state.negocioConfig),
+      alertasPedidos:         load('sep_alertas_pedidos', state.alertasPedidos),
+      themeColor:             load('sep_theme', '#1f51d3'),
+      darkMode:               isDark,
     };
     state = { ...state, ...newState };
     applyTheme(state.themeColor, isDark);
@@ -411,6 +464,12 @@ window.addEventListener('storage', (e) => {
         break;
       case 'sep_clientes':
         setState({ clientes: JSON.parse(e.newValue) });
+        break;
+      case 'sep_etiquetas':
+        setState({ etiquetasPersonalizadas: JSON.parse(e.newValue) });
+        break;
+      case 'sep_categorias_producto':
+        setState({ categoriasProducto: JSON.parse(e.newValue) });
         break;
       case 'sep_productos':
         setState({ productos: JSON.parse(e.newValue) });

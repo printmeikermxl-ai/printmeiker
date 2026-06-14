@@ -3,8 +3,8 @@ import { useStore, store } from '../store/useStore';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { StatusBadge } from '../components/StatusBadge';
 
-// ── Etiqueta config ───────────────────────────────────────────────────────────
-const ETIQUETAS = {
+// ── Etiquetas predefinidas (no se pueden eliminar) ────────────────────────────
+export const ETIQUETAS_BASE = {
   vip:      { label: '⭐ VIP',      color: '#FFF3CD', text: '#856404' },
   empresa:  { label: '🏢 Empresa',  color: '#CCE5FF', text: '#004085' },
   regular:  { label: '👤 Regular',  color: '#E2E3E5', text: '#383D41' },
@@ -12,15 +12,53 @@ const ETIQUETAS = {
   inactivo: { label: '😴 Inactivo', color: '#F8D7DA', text: '#721C24' },
 };
 
-const EtiquetaBadge = ({ etiqueta }) => {
-  const cfg = ETIQUETAS[etiqueta] || ETIQUETAS.regular;
+// Colores predefinidos para etiquetas personalizadas
+const COLORES_DISPONIBLES = [
+  { bg: '#E8D5FF', text: '#6B21A8', label: 'Morado' },
+  { bg: '#D1FAE5', text: '#065F46', label: 'Verde' },
+  { bg: '#FEE2E2', text: '#991B1B', label: 'Rojo' },
+  { bg: '#FEF9C3', text: '#854D0E', label: 'Amarillo' },
+  { bg: '#DBEAFE', text: '#1E40AF', label: 'Azul' },
+  { bg: '#FCE7F3', text: '#9D174D', label: 'Rosa' },
+  { bg: '#F3F4F6', text: '#374151', label: 'Gris' },
+  { bg: '#ECFDF5', text: '#166534', label: 'Menta' },
+];
+
+const EMOJIS_DISPONIBLES = ['🏷️','💼','🎨','🚀','⚡','🌟','💎','🔑','📦','🎯','🛒','🏆','💡','🎪','🌈'];
+
+// ── EtiquetaBadge (usa base + personalizadas) ─────────────────────────────────
+export const EtiquetaBadge = ({ etiqueta, etiquetasPersonalizadas = [] }) => {
+  const base = ETIQUETAS_BASE[etiqueta];
+  if (base) {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+        background: base.color, color: base.text, whiteSpace: 'nowrap',
+      }}>
+        {base.label}
+      </span>
+    );
+  }
+  const custom = etiquetasPersonalizadas.find(e => e.id === etiqueta || e.nombre === etiqueta);
+  if (custom) {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+        background: custom.color, color: custom.text, whiteSpace: 'nowrap',
+      }}>
+        {custom.emoji || '🏷️'} {custom.nombre}
+      </span>
+    );
+  }
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
       padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
-      background: cfg.color, color: cfg.text, whiteSpace: 'nowrap',
+      background: '#E2E3E5', color: '#383D41', whiteSpace: 'nowrap',
     }}>
-      {cfg.label}
+      👤 {etiqueta || 'Regular'}
     </span>
   );
 };
@@ -58,19 +96,218 @@ const emptyForm = () => ({
 
 const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
+// ── Modal para gestionar etiquetas personalizadas ─────────────────────────────
+const ModalEtiquetas = ({ etiquetasPersonalizadas, onClose }) => {
+  const [nueva, setNueva] = useState({ nombre: '', emoji: '🏷️', color: COLORES_DISPONIBLES[0].bg, text: COLORES_DISPONIBLES[0].text });
+  const [editandoId, setEditandoId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+
+  const handleAgregar = () => {
+    if (!nueva.nombre.trim()) return;
+    store.addEtiqueta({ nombre: nueva.nombre.trim(), emoji: nueva.emoji, color: nueva.color, text: nueva.text });
+    setNueva({ nombre: '', emoji: '🏷️', color: COLORES_DISPONIBLES[0].bg, text: COLORES_DISPONIBLES[0].text });
+  };
+
+  const handleEditar = (et) => {
+    setEditandoId(et.id);
+    setEditForm({ nombre: et.nombre, emoji: et.emoji || '🏷️', color: et.color, text: et.text });
+  };
+
+  const handleGuardarEdit = () => {
+    if (!editForm.nombre.trim()) return;
+    store.updateEtiqueta(editandoId, editForm);
+    setEditandoId(null);
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal modal-lg" style={{ maxWidth: 560 }}>
+        <div className="modal-header">
+          <h2>🏷️ Gestionar categorías</h2>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          {/* Categorías base (no editables) */}
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'hsl(var(--muted))', marginBottom: 10 }}>
+            CATEGORÍAS PREDEFINIDAS
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+            {Object.entries(ETIQUETAS_BASE).map(([k, v]) => (
+              <span key={k} style={{
+                padding: '4px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+                background: v.color, color: v.text,
+              }}>{v.label}</span>
+            ))}
+          </div>
+
+          <div className="divider" />
+
+          {/* Categorías personalizadas existentes */}
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'hsl(var(--muted))', margin: '16px 0 12px' }}>
+            MIS CATEGORÍAS ({etiquetasPersonalizadas.length})
+          </div>
+
+          {etiquetasPersonalizadas.length === 0 && (
+            <div style={{ padding: '12px 0', color: 'hsl(var(--muted))', fontSize: 13, textAlign: 'center' }}>
+              Sin categorías personalizadas aún. ¡Crea la primera!
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            {etiquetasPersonalizadas.map(et => (
+              <div key={et.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 14px', borderRadius: 10, background: 'hsl(var(--bg))',
+                border: '1px solid hsl(var(--border))',
+              }}>
+                {editandoId === et.id ? (
+                  <>
+                    {/* Emoji picker inline */}
+                    <select
+                      value={editForm.emoji}
+                      onChange={e => setEditForm(f => ({ ...f, emoji: e.target.value }))}
+                      style={{ fontSize: 18, border: 'none', background: 'transparent', cursor: 'pointer', width: 40 }}
+                    >
+                      {EMOJIS_DISPONIBLES.map(em => <option key={em} value={em}>{em}</option>)}
+                    </select>
+                    <input
+                      className="form-input"
+                      style={{ flex: 1, height: 34 }}
+                      value={editForm.nombre}
+                      onChange={e => setEditForm(f => ({ ...f, nombre: e.target.value }))}
+                      placeholder="Nombre de categoría"
+                    />
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {COLORES_DISPONIBLES.map((c, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setEditForm(f => ({ ...f, color: c.bg, text: c.text }))}
+                          style={{
+                            width: 20, height: 20, borderRadius: 99, background: c.bg,
+                            border: editForm.color === c.bg ? `2px solid ${c.text}` : '2px solid transparent',
+                            cursor: 'pointer',
+                          }}
+                          title={c.label}
+                        />
+                      ))}
+                    </div>
+                    <button className="btn btn-primary btn-sm" onClick={handleGuardarEdit}>✓</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setEditandoId(null)}>✕</button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 18 }}>{et.emoji || '🏷️'}</span>
+                    <span style={{
+                      flex: 1, padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+                      background: et.color, color: et.text, display: 'inline-block',
+                    }}>
+                      {et.nombre}
+                    </span>
+                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleEditar(et)}>✏️</button>
+                    <button
+                      className="btn btn-ghost btn-icon btn-sm"
+                      style={{ color: 'hsl(var(--danger))' }}
+                      onClick={() => store.deleteEtiqueta(et.id)}
+                    >🗑️</button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="divider" />
+
+          {/* Crear nueva etiqueta */}
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'hsl(var(--muted))', margin: '16px 0 12px' }}>
+            + NUEVA CATEGORÍA
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px', background: 'hsl(var(--bg))', borderRadius: 10, border: '1px dashed hsl(var(--border))' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <select
+                value={nueva.emoji}
+                onChange={e => setNueva(f => ({ ...f, emoji: e.target.value }))}
+                style={{ fontSize: 20, border: 'none', background: 'transparent', cursor: 'pointer', width: 44 }}
+              >
+                {EMOJIS_DISPONIBLES.map(em => <option key={em} value={em}>{em}</option>)}
+              </select>
+              <input
+                className="form-input"
+                style={{ flex: 1 }}
+                value={nueva.nombre}
+                onChange={e => setNueva(f => ({ ...f, nombre: e.target.value }))}
+                placeholder="Nombre de la categoría (ej. Mayorista, Diseñador...)"
+                onKeyDown={e => e.key === 'Enter' && handleAgregar()}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>Color:</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {COLORES_DISPONIBLES.map((c, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setNueva(f => ({ ...f, color: c.bg, text: c.text }))}
+                    style={{
+                      width: 22, height: 22, borderRadius: 99, background: c.bg,
+                      border: nueva.color === c.bg ? `2px solid ${c.text}` : '2px solid transparent',
+                      cursor: 'pointer', flexShrink: 0,
+                    }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+              {/* Preview */}
+              {nueva.nombre && (
+                <span style={{
+                  padding: '3px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+                  background: nueva.color, color: nueva.text,
+                }}>
+                  {nueva.emoji} {nueva.nombre}
+                </span>
+              )}
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={handleAgregar}
+              disabled={!nueva.nombre.trim()}
+            >
+              + Agregar categoría
+            </button>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-primary" onClick={onClose}>✓ Listo</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Componente principal ──────────────────────────────────────────────────────
 export const ClientesPage = () => {
-  const { clientes, pedidos, cotizaciones } = useStore();
+  const { clientes, pedidos, cotizaciones, etiquetasPersonalizadas } = useStore();
   const [search, setSearch] = useState('');
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('todos');
-  const [modal, setModal] = useState(null); // null | 'create' | 'edit' | 'view'
+  const [ordenAlfabetico, setOrdenAlfabetico] = useState(false);
+  const [modal, setModal] = useState(null); // null | 'create' | 'edit' | 'view' | 'etiquetas'
   const [form, setForm] = useState(emptyForm());
   const [editId, setEditId] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [view, setView] = useState('grid'); // 'grid' | 'table'
 
+  // Todas las etiquetas disponibles (base + personalizadas)
+  const todasEtiquetas = {
+    ...ETIQUETAS_BASE,
+    ...Object.fromEntries(
+      etiquetasPersonalizadas.map(e => [
+        e.id,
+        { label: `${e.emoji || '🏷️'} ${e.nombre}`, color: e.color, text: e.text }
+      ])
+    )
+  };
+
   // ── Filtros ──────────────────────────────────────────────────────────────────
-  const filtered = clientes.filter(c => {
+  let filtered = clientes.filter(c => {
     const q = search.toLowerCase();
     const matchSearch =
       c.nombre.toLowerCase().includes(q) ||
@@ -80,6 +317,10 @@ export const ClientesPage = () => {
     const matchEtiqueta = filtroEtiqueta === 'todos' || c.etiqueta === filtroEtiqueta;
     return matchSearch && matchEtiqueta;
   });
+
+  if (ordenAlfabetico) {
+    filtered = [...filtered].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }
 
   // ── Métricas por cliente ─────────────────────────────────────────────────────
   const getClienteStats = (nombreCliente) => {
@@ -139,6 +380,7 @@ export const ClientesPage = () => {
         <div style={{ display: 'flex', gap: 10 }}>
           <button className={`btn ${view === 'grid' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('grid')}>⊞ Tarjetas</button>
           <button className={`btn ${view === 'table' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('table')}>☰ Lista</button>
+          <button className="btn btn-secondary" onClick={() => setModal('etiquetas')} title="Gestionar categorías">🏷️ Categorías</button>
           <button className="btn btn-primary" onClick={openCreate}>+ Nuevo cliente</button>
         </div>
       </div>
@@ -195,13 +437,29 @@ export const ClientesPage = () => {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="tabs">
-          <button className={`tab ${filtroEtiqueta === 'todos' ? 'active' : ''}`} onClick={() => setFiltroEtiqueta('todos')}>Todos</button>
-          {Object.entries(ETIQUETAS).map(([k, v]) => (
-            <button key={k} className={`tab ${filtroEtiqueta === k ? 'active' : ''}`} onClick={() => setFiltroEtiqueta(k)}>
-              {v.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Orden alfabético */}
+          <button
+            className={`btn btn-sm ${ordenAlfabetico ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setOrdenAlfabetico(!ordenAlfabetico)}
+            title="Ordenar A-Z"
+            style={{ fontWeight: 700, fontSize: 13 }}
+          >
+            A→Z
+          </button>
+          <div className="tabs">
+            <button className={`tab ${filtroEtiqueta === 'todos' ? 'active' : ''}`} onClick={() => setFiltroEtiqueta('todos')}>Todos</button>
+            {Object.entries(ETIQUETAS_BASE).map(([k, v]) => (
+              <button key={k} className={`tab ${filtroEtiqueta === k ? 'active' : ''}`} onClick={() => setFiltroEtiqueta(k)}>
+                {v.label}
+              </button>
+            ))}
+            {etiquetasPersonalizadas.map(et => (
+              <button key={et.id} className={`tab ${filtroEtiqueta === et.id ? 'active' : ''}`} onClick={() => setFiltroEtiqueta(et.id)}>
+                {et.emoji || '🏷️'} {et.nombre}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -251,7 +509,7 @@ export const ClientesPage = () => {
                     <Avatar nombre={c.nombre} size={48} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 3 }}>{c.nombre}</div>
-                      <EtiquetaBadge etiqueta={c.etiqueta} />
+                      <EtiquetaBadge etiqueta={c.etiqueta} etiquetasPersonalizadas={etiquetasPersonalizadas} />
                     </div>
                     {stats.pedidosActivos > 0 && (
                       <span style={{
@@ -341,7 +599,7 @@ export const ClientesPage = () => {
             <thead>
               <tr>
                 <th>Cliente</th>
-                <th>Etiqueta</th>
+                <th>Categoría</th>
                 <th>Contacto</th>
                 <th>Ciudad</th>
                 <th>Pedidos</th>
@@ -364,7 +622,7 @@ export const ClientesPage = () => {
                         </div>
                       </div>
                     </td>
-                    <td><EtiquetaBadge etiqueta={c.etiqueta} /></td>
+                    <td><EtiquetaBadge etiqueta={c.etiqueta} etiquetasPersonalizadas={etiquetasPersonalizadas} /></td>
                     <td>
                       {c.telefono && <div style={{ fontSize: 13 }}>📱 {c.telefono}</div>}
                       {c.email && <div style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>✉️ {c.email}</div>}
@@ -417,16 +675,26 @@ export const ClientesPage = () => {
                     <Avatar nombre={form.nombre || 'C'} size={52} />
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 16 }}>{form.nombre || 'Nuevo cliente'}</div>
-                      <EtiquetaBadge etiqueta={form.etiqueta} />
+                      <EtiquetaBadge etiqueta={form.etiqueta} etiquetasPersonalizadas={etiquetasPersonalizadas} />
                     </div>
                   </div>
                 )}
 
-                {/* Etiqueta */}
+                {/* Etiqueta/Categoría */}
                 <div className="form-group">
-                  <label className="form-label">Etiqueta</label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <label className="form-label" style={{ margin: 0 }}>Categoría</label>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 11 }}
+                      onClick={() => setModal('etiquetas-inline')}
+                    >
+                      🏷️ Gestionar categorías
+                    </button>
+                  </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {Object.entries(ETIQUETAS).map(([k, v]) => (
+                    {Object.entries(ETIQUETAS_BASE).map(([k, v]) => (
                       <button
                         key={k}
                         type="button"
@@ -440,6 +708,22 @@ export const ClientesPage = () => {
                         }}
                       >
                         {v.label}
+                      </button>
+                    ))}
+                    {etiquetasPersonalizadas.map(et => (
+                      <button
+                        key={et.id}
+                        type="button"
+                        onClick={() => set('etiqueta', et.id)}
+                        style={{
+                          padding: '5px 14px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+                          border: `2px solid ${form.etiqueta === et.id ? et.text : 'transparent'}`,
+                          background: et.color, color: et.text, cursor: 'pointer',
+                          transition: 'all .15s ease',
+                          transform: form.etiqueta === et.id ? 'scale(1.05)' : 'scale(1)',
+                        }}
+                      >
+                        {et.emoji || '🏷️'} {et.nombre}
                       </button>
                     ))}
                   </div>
@@ -529,7 +813,7 @@ export const ClientesPage = () => {
                   <Avatar nombre={form.nombre} size={44} />
                   <div>
                     <h2 style={{ fontSize: 18, fontWeight: 800 }}>{form.nombre}</h2>
-                    <EtiquetaBadge etiqueta={form.etiqueta} />
+                    <EtiquetaBadge etiqueta={form.etiqueta} etiquetasPersonalizadas={etiquetasPersonalizadas} />
                   </div>
                 </div>
                 <button className="btn btn-ghost btn-icon" onClick={() => setModal(null)}>✕</button>
@@ -666,6 +950,17 @@ export const ClientesPage = () => {
           </div>
         );
       })()}
+
+      {/* ── MODAL ETIQUETAS ─────────────────────────────────────────────────── */}
+      {(modal === 'etiquetas' || modal === 'etiquetas-inline') && (
+        <ModalEtiquetas
+          etiquetasPersonalizadas={etiquetasPersonalizadas}
+          onClose={() => {
+            if (modal === 'etiquetas-inline') setModal('create');
+            else setModal(null);
+          }}
+        />
+      )}
 
       {/* Confirm delete */}
       {confirm && (

@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, store } from '../store/useStore';
 import { StatusBadge } from '../components/StatusBadge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProductLinesInput } from '../components/ProductLinesInput';
+import { ETIQUETAS_BASE, EtiquetaBadge } from './ClientesPage';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
@@ -42,7 +43,7 @@ const getPrimaryColor = () => {
 };
 
 export const CotizacionesPage = () => {
-  const { cotizaciones, productos: catalogo, config, negocioConfig } = useStore();
+  const { cotizaciones, productos: catalogo, config, negocioConfig, clientes, etiquetasPersonalizadas } = useStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
@@ -51,6 +52,51 @@ export const CotizacionesPage = () => {
   const [editId, setEditId] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const printRef = useRef();
+
+  // ── Buscador de clientes ─────────────────────────────────────────────────────
+  const [clienteSearch, setClienteSearch] = useState('');
+  const [clienteDropdownOpen, setClienteDropdownOpen] = useState(false);
+  const [filtroEtiquetaCliente, setFiltroEtiquetaCliente] = useState('todos');
+  const [clienteOrdenAZ, setClienteOrdenAZ] = useState(false);
+  const clienteInputRef = useRef();
+
+  // Clientes filtrados para el buscador
+  const clientesFiltrados = (() => {
+    let lista = clientes.filter(c => {
+      const q = clienteSearch.toLowerCase();
+      const matchQ = !q ||
+        c.nombre.toLowerCase().includes(q) ||
+        c.telefono?.includes(q) ||
+        c.email?.toLowerCase().includes(q);
+      const matchEt = filtroEtiquetaCliente === 'todos' || c.etiqueta === filtroEtiquetaCliente;
+      return matchQ && matchEt;
+    });
+    if (clienteOrdenAZ) lista = [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    return lista;
+  })();
+
+  const seleccionarCliente = (c) => {
+    setForm(f => ({
+      ...f,
+      cliente: c.nombre,
+      telefono: c.telefono || f.telefono,
+      email: c.email || f.email,
+      direccion: c.direccion ? `${c.direccion}${c.ciudad ? ', ' + c.ciudad : ''}${c.estado ? ', ' + c.estado : ''}` : f.direccion,
+    }));
+    setClienteSearch(c.nombre);
+    setClienteDropdownOpen(false);
+  };
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handler = (e) => {
+      if (clienteInputRef.current && !clienteInputRef.current.closest('.cliente-search-wrap')?.contains(e.target)) {
+        setClienteDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const filtered = cotizaciones.filter(c => {
     const matchSearch = c.cliente.toLowerCase().includes(search.toLowerCase()) || c.id.toLowerCase().includes(search.toLowerCase());
@@ -514,9 +560,128 @@ export const CotizacionesPage = () => {
                 {/* Sección: Datos del cliente */}
                 <div className="cot-section-label">👤 Datos del cliente</div>
                 <div className="form-grid">
-                  <div className="form-group">
+                  <div className="form-group" style={{ position: 'relative' }}>
                     <label className="form-label">Cliente *</label>
-                    <input className="form-input" required value={form.cliente} onChange={e => set('cliente', e.target.value)} placeholder="Nombre o empresa" />
+                    <div className="cliente-search-wrap" style={{ position: 'relative' }}>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          ref={clienteInputRef}
+                          className="form-input"
+                          required
+                          value={form.cliente}
+                          onChange={e => {
+                            set('cliente', e.target.value);
+                            setClienteSearch(e.target.value);
+                            setClienteDropdownOpen(true);
+                          }}
+                          onFocus={() => {
+                            setClienteSearch(form.cliente);
+                            setClienteDropdownOpen(true);
+                          }}
+                          placeholder="Escribe o selecciona un cliente"
+                          autoComplete="off"
+                        />
+                        {clientes.length > 0 && (
+                          <span style={{
+                            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                            fontSize: 11, color: 'hsl(var(--muted))', pointerEvents: 'none',
+                          }}>▼</span>
+                        )}
+                      </div>
+
+                      {/* Dropdown de clientes */}
+                      {clienteDropdownOpen && clientes.length > 0 && (
+                        <div style={{
+                          position: 'absolute', zIndex: 999, top: 'calc(100% + 4px)', left: 0, right: 0,
+                          background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))',
+                          borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+                          maxHeight: 360, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                        }}>
+                          {/* Controles del dropdown */}
+                          <div style={{ padding: '8px 10px', borderBottom: '1px solid hsl(var(--border))', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className={`btn btn-sm ${clienteOrdenAZ ? 'btn-primary' : 'btn-ghost'}`}
+                              style={{ fontSize: 11, padding: '2px 8px', fontWeight: 700 }}
+                              onMouseDown={e => { e.preventDefault(); setClienteOrdenAZ(!clienteOrdenAZ); }}
+                            >A→Z</button>
+                            <button
+                              type="button"
+                              className={`btn btn-sm ${filtroEtiquetaCliente === 'todos' ? 'btn-primary' : 'btn-ghost'}`}
+                              style={{ fontSize: 11, padding: '2px 8px' }}
+                              onMouseDown={e => { e.preventDefault(); setFiltroEtiquetaCliente('todos'); }}
+                            >Todos</button>
+                            {Object.entries(ETIQUETAS_BASE).map(([k, v]) => (
+                              <button
+                                key={k}
+                                type="button"
+                                className={`btn btn-sm ${filtroEtiquetaCliente === k ? 'btn-primary' : 'btn-ghost'}`}
+                                style={{ fontSize: 11, padding: '2px 8px' }}
+                                onMouseDown={e => { e.preventDefault(); setFiltroEtiquetaCliente(k); }}
+                              >{v.label}</button>
+                            ))}
+                            {(etiquetasPersonalizadas || []).map(et => (
+                              <button
+                                key={et.id}
+                                type="button"
+                                className={`btn btn-sm ${filtroEtiquetaCliente === et.id ? 'btn-primary' : 'btn-ghost'}`}
+                                style={{ fontSize: 11, padding: '2px 8px' }}
+                                onMouseDown={e => { e.preventDefault(); setFiltroEtiquetaCliente(et.id); }}
+                              >{et.emoji || '🏷️'} {et.nombre}</button>
+                            ))}
+                          </div>
+
+                          {/* Lista de clientes */}
+                          <div style={{ overflowY: 'auto', maxHeight: 280 }}>
+                            {clientesFiltrados.length === 0 ? (
+                              <div style={{ padding: '16px', textAlign: 'center', color: 'hsl(var(--muted))', fontSize: 13 }}>
+                                Sin clientes que coincidan
+                              </div>
+                            ) : (
+                              clientesFiltrados.map(c => {
+                                const et = ETIQUETAS_BASE[c.etiqueta] ||
+                                  (etiquetasPersonalizadas || []).find(e => e.id === c.etiqueta);
+                                return (
+                                  <div
+                                    key={c.id}
+                                    onMouseDown={e => { e.preventDefault(); seleccionarCliente(c); }}
+                                    style={{
+                                      padding: '10px 14px', cursor: 'pointer',
+                                      borderBottom: '1px solid hsl(var(--border))',
+                                      display: 'flex', alignItems: 'center', gap: 10,
+                                      transition: 'background .1s',
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--bg))'}
+                                    onMouseLeave={e => e.currentTarget.style.background = ''}
+                                  >
+                                    <div style={{
+                                      width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                                      background: 'hsl(var(--primary-light))',
+                                      display: 'grid', placeItems: 'center',
+                                      fontWeight: 700, fontSize: 13, color: 'hsl(var(--primary))',
+                                    }}>
+                                      {c.nombre[0]?.toUpperCase()}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontWeight: 600, fontSize: 13 }}>{c.nombre}</div>
+                                      {c.telefono && <div style={{ fontSize: 11, color: 'hsl(var(--muted))' }}>📱 {c.telefono}</div>}
+                                    </div>
+                                    {et && (
+                                      <span style={{
+                                        padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600,
+                                        background: et.color, color: et.text, whiteSpace: 'nowrap', flexShrink: 0,
+                                      }}>
+                                        {et.label || `${et.emoji || ''} ${et.nombre || ''}`}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Teléfono</label>
