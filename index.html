@@ -1,63 +1,67 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>PrintMeiker</title>
-    <meta name="description" content="Sistema de gestión de pedidos, cotizaciones y finanzas para tu negocio" />
-    <meta name="theme-color" content="#c9506b" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="PrintMeiker" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23222'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>P</text></svg>" />
-    <script>
-      // Redirect to dev server if opened directly from file system
-      if (window.location.protocol === 'file:') {
-        window.location.href = 'http://localhost:5173/';
-      }
-      
-      // Apply saved theme before React renders
-      (function () {
-        var THEMES = {
-          "#1f51d3": {"--primary":"223 74% 48%","--primary-light":"223 74% 94%","--primary-dark":"223 74% 38%","--primary-rgb":"31, 81, 211","--accent":"223 74% 48%","--bg":"223 50% 98%","--sidebar-bg":"223 35% 98%","--sidebar-active":"223 35% 93%"},
-          "#c9506b": {"--primary":"347 53% 55%","--primary-light":"347 53% 92%","--primary-dark":"347 53% 40%","--primary-rgb":"201, 80, 107","--accent":"10 72% 56%","--bg":"347 60% 97%","--sidebar-bg":"347 40% 97%","--sidebar-active":"347 35% 92%"},
-          "#8ecae6": {"--primary":"199 65% 73%","--primary-light":"199 65% 92%","--primary-dark":"199 65% 43%","--primary-rgb":"142, 202, 230","--accent":"199 65% 43%","--bg":"200 60% 97%","--sidebar-bg":"199 40% 96%","--sidebar-active":"199 40% 90%"},
-          "#219ebc": {"--primary":"194 69% 43%","--primary-light":"194 69% 88%","--primary-dark":"194 69% 28%","--primary-rgb":"33, 158, 188","--accent":"205 97% 14%","--bg":"194 50% 97%","--sidebar-bg":"194 35% 96%","--sidebar-active":"194 35% 91%"},
-          "#023047": {"--primary":"205 97% 14%","--primary-light":"205 40% 88%","--primary-dark":"205 97% 8%","--primary-rgb":"2, 48, 71","--accent":"194 69% 43%","--bg":"210 15% 97%","--sidebar-bg":"210 15% 96%","--sidebar-active":"210 15% 91%"},
-          "#ffb703": {"--primary":"42 100% 51%","--primary-light":"42 100% 90%","--primary-dark":"42 100% 35%","--primary-rgb":"255, 183, 3","--accent":"28 100% 49%","--bg":"42 80% 97%","--sidebar-bg":"42 60% 96%","--sidebar-active":"42 50% 91%"},
-          "#fb8500": {"--primary":"28 100% 49%","--primary-light":"28 100% 90%","--primary-dark":"28 100% 32%","--primary-rgb":"251, 133, 0","--accent":"42 100% 51%","--bg":"28 80% 97%","--sidebar-bg":"28 60% 96%","--sidebar-active":"28 50% 91%"}
-        };
-        var saved = localStorage.getItem('sep_theme') || '#1f51d3';
-        var isDark = localStorage.getItem('sep_dark_mode') === 'true';
-        var vars = THEMES[saved] || THEMES['#1f51d3'];
-        var root = document.documentElement;
-        
-        for (var k in vars) {
-          if (isDark && (k === '--bg' || k === '--sidebar-bg' || k === '--sidebar-active' || k === '--primary-light')) {
-            continue;
-          }
-          root.style.setProperty(k, vars[k]);
-        }
 
-        if (isDark) {
-          root.classList.add('dark-theme');
-          root.style.setProperty('--bg', '222 15% 10%');
-          root.style.setProperty('--sidebar-bg', '222 15% 12%');
-          root.style.setProperty('--sidebar-active', '222 15% 20%');
-          root.style.setProperty('--card', '222 15% 14%');
-          root.style.setProperty('--foreground', '220 10% 95%');
-          root.style.setProperty('--muted', '220 10% 65%');
-          root.style.setProperty('--border', '222 15% 18%');
-          var primaryHSL = (vars['--primary'] || '223 74% 48%').split(' ');
-          root.style.setProperty('--primary-light', primaryHSL[0] + ' ' + primaryHSL[1] + ' 20%');
-        } else {
-          root.classList.remove('dark-theme');
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>PrintMeiker</title>
+  <meta name="description" content="Sistema de gestión de pedidos, cotizaciones y finanzas para tu negocio" />
+  <meta name="theme-color" content="#c9506b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PrintMeiker" />
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23222'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>P</text></svg>" />
+  <script>
+    // Redirect to dev server if opened directly from file system
+    if (window.location.protocol === 'file:') {
+      window.location.href = 'http://localhost:5173/';
+    }
+
+    // Apply saved theme before React renders
+    (function () {
+      var THEMES = {
+        "#1f51d3": { "--primary": "223 74% 48%", "--primary-light": "223 74% 94%", "--primary-dark": "223 74% 38%", "--primary-rgb": "31, 81, 211", "--accent": "223 74% 48%", "--bg": "223 50% 98%", "--sidebar-bg": "223 35% 98%", "--sidebar-active": "223 35% 93%" },
+        "#c9506b": { "--primary": "347 53% 55%", "--primary-light": "347 53% 92%", "--primary-dark": "347 53% 40%", "--primary-rgb": "201, 80, 107", "--accent": "10 72% 56%", "--bg": "347 60% 97%", "--sidebar-bg": "347 40% 97%", "--sidebar-active": "347 35% 92%" },
+        "#8ecae6": { "--primary": "199 65% 73%", "--primary-light": "199 65% 92%", "--primary-dark": "199 65% 43%", "--primary-rgb": "142, 202, 230", "--accent": "199 65% 43%", "--bg": "200 60% 97%", "--sidebar-bg": "199 40% 96%", "--sidebar-active": "199 40% 90%" },
+        "#219ebc": { "--primary": "194 69% 43%", "--primary-light": "194 69% 88%", "--primary-dark": "194 69% 28%", "--primary-rgb": "33, 158, 188", "--accent": "205 97% 14%", "--bg": "194 50% 97%", "--sidebar-bg": "194 35% 96%", "--sidebar-active": "194 35% 91%" },
+        "#023047": { "--primary": "205 97% 14%", "--primary-light": "205 40% 88%", "--primary-dark": "205 97% 8%", "--primary-rgb": "2, 48, 71", "--accent": "194 69% 43%", "--bg": "210 15% 97%", "--sidebar-bg": "210 15% 96%", "--sidebar-active": "210 15% 91%" },
+        "#ffb703": { "--primary": "42 100% 51%", "--primary-light": "42 100% 90%", "--primary-dark": "42 100% 35%", "--primary-rgb": "255, 183, 3", "--accent": "28 100% 49%", "--bg": "42 80% 97%", "--sidebar-bg": "42 60% 96%", "--sidebar-active": "42 50% 91%" },
+        "#fb8500": { "--primary": "28 100% 49%", "--primary-light": "28 100% 90%", "--primary-dark": "28 100% 32%", "--primary-rgb": "251, 133, 0", "--accent": "42 100% 51%", "--bg": "28 80% 97%", "--sidebar-bg": "28 60% 96%", "--sidebar-active": "28 50% 91%" }
+      };
+      var saved = localStorage.getItem('sep_theme') || '#1f51d3';
+      var isDark = localStorage.getItem('sep_dark_mode') === 'true';
+      var vars = THEMES[saved] || THEMES['#1f51d3'];
+      var root = document.documentElement;
+
+      for (var k in vars) {
+        if (isDark && (k === '--bg' || k === '--sidebar-bg' || k === '--sidebar-active' || k === '--primary-light')) {
+          continue;
         }
-      })();
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+        root.style.setProperty(k, vars[k]);
+      }
+
+      if (isDark) {
+        root.classList.add('dark-theme');
+        root.style.setProperty('--bg', '222 15% 10%');
+        root.style.setProperty('--sidebar-bg', '222 15% 12%');
+        root.style.setProperty('--sidebar-active', '222 15% 20%');
+        root.style.setProperty('--card', '222 15% 14%');
+        root.style.setProperty('--foreground', '220 10% 95%');
+        root.style.setProperty('--muted', '220 10% 65%');
+        root.style.setProperty('--border', '222 15% 18%');
+        var primaryHSL = (vars['--primary'] || '223 74% 48%').split(' ');
+        root.style.setProperty('--primary-light', primaryHSL[0] + ' ' + primaryHSL[1] + ' 20%');
+      } else {
+        root.classList.remove('dark-theme');
+      }
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>

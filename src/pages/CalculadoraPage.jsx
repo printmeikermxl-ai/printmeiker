@@ -102,7 +102,9 @@ export const CalculadoraPage = () => {
   const LS_KEY_MATERIALES = 'calc_materiales';
   const [materiales, setMateriales] = useState(() => {
     const saved = loadLS(LS_KEY_MATERIALES, null);
-    if (saved && Array.isArray(saved) && saved.length > 0) return saved;
+    if (saved && Array.isArray(saved) && saved.length > 0) {
+      return saved.map(m => m.modoCompra === 'metro2' ? { ...m, modoCompra: 'individual' } : m);
+    }
     return [{ id: uid(), tipo: 'Bond', tipoPersonalizado: '', modoCompra: 'individual', costoUnitario: 8, costoPaquete: 0, cantidadPaquete: 1, piezasPorUnidad: 1, merma: 0 }];
   });  /* ── Empaque ─────────────────────────────────────────────────────────────────── */
   const LS_KEY_EMPAQUE = 'calc_empaque';
@@ -113,6 +115,7 @@ export const CalculadoraPage = () => {
     return raw.map(item => ({
       id: item.id || uid(),
       nombre: item.nombre || '',
+      activo: item.activo !== false,
       modoCompra: item.modoCompra || 'individual',
       aplicaPor: item.aplicaPor === 'paquete' ? 'lote' : (item.aplicaPor || 'pieza'),
       precioUnitario: item.precioUnitario ?? 0,
@@ -199,7 +202,7 @@ export const CalculadoraPage = () => {
   /* ── Empaque CRUD ────────────────────────────────────────────────────────────────── */
   const addItemEmpaque = () =>
     setItemsEmpaque(prev => [...prev, {
-      id: uid(), nombre: '', modoCompra: 'individual', aplicaPor: 'pieza',
+      id: uid(), nombre: '', activo: true, modoCompra: 'individual', aplicaPor: 'pieza',
       precioUnitario: 0, costoPaquete: 0, cantidadPaquete: 1, cantidadUso: 1,
     }]);
 
@@ -230,7 +233,8 @@ export const CalculadoraPage = () => {
 
   // Procesa cada item de empaque con su aporte calculado
   const empaqueItems = incluirEmpaque ? itemsEmpaque.map(item => {
-    const costoUnit = calcCostoUnitEmpaque(item);
+    const activo = item.activo !== false;
+    const costoUnit = activo ? calcCostoUnitEmpaque(item) : 0;
     const uso = Number(item.cantidadUso || 1);
     const esLote = (item.aplicaPor || 'pieza') === 'lote';
     // totalItem = costoUnit × uso (total del item para todo el pedido si lote, o costo/pieza si pieza)
@@ -239,7 +243,7 @@ export const CalculadoraPage = () => {
     const aportePorPieza = esLote
       ? (cantidadNum > 0 ? totalItem / cantidadNum : 0)
       : totalItem;
-    return { ...item, costoUnit, uso, esLote, totalItem, aportePorPieza };
+    return { ...item, activo, costoUnit, uso, esLote, totalItem, aportePorPieza };
   }) : [];
 
   // Total de empaque por pieza (se suma a costoBasePorPieza)
@@ -547,7 +551,7 @@ export const CalculadoraPage = () => {
                       </div>
                     )}
 
-                    {/* Rendimiento del material */}
+                    {/* Rendimiento del material (Individual / Paquete) */}
                     <div className="mat-section-title" style={{ marginTop: 6 }}>⚙️ Rendimiento del material</div>
                     <div className="form-grid">
                       <div className="form-group">
@@ -753,13 +757,35 @@ export const CalculadoraPage = () => {
                           key={item.id}
                           onClick={e => e.stopPropagation()}
                           style={{
-                            border: `2px solid ${item.esLote ? 'hsl(var(--primary) / 0.35)' : 'hsl(var(--border))'}`,
+                            border: `2px solid ${!item.activo ? 'hsl(var(--border))' : item.esLote ? 'hsl(var(--primary) / 0.35)' : 'hsl(var(--border))'}`,
                             borderRadius: 12, padding: '14px 16px',
-                            background: item.esLote ? 'hsl(var(--primary) / 0.04)' : 'hsl(var(--card))',
+                            background: !item.activo ? 'hsl(var(--bg))' : item.esLote ? 'hsl(var(--primary) / 0.04)' : 'hsl(var(--card))',
+                            opacity: item.activo ? 1 : 0.45,
+                            transition: 'opacity 0.25s ease, background 0.25s ease',
                           }}
                         >
-                          {/* Fila 1: Nombre + Badge modo + Total + Eliminar */}
+                          {/* Fila 1: Toggle + Nombre + Badge modo + Total + Eliminar */}
                           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+                            {/* Toggle activo/inactivo */}
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); updateItemEmpaque(item.id, 'activo', !item.activo); }}
+                              title={item.activo ? 'Desactivar material' : 'Activar material'}
+                              style={{
+                                width: 38, height: 22, borderRadius: 99, border: 'none', cursor: 'pointer',
+                                background: item.activo ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                                position: 'relative', display: 'inline-block', transition: 'background 0.25s',
+                                flexShrink: 0,
+                              }}
+                            >
+                              <span style={{
+                                position: 'absolute', top: 3,
+                                left: item.activo ? 18 : 3,
+                                width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                                transition: 'left 0.25s', display: 'block',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+                              }} />
+                            </button>
                             <input
                               className="form-input"
                               style={{ flex: 1 }}
@@ -779,7 +805,7 @@ export const CalculadoraPage = () => {
                               <div style={{ fontSize: 10, color: 'hsl(var(--muted))' }}>
                                 {item.esLote ? 'Total pedido' : 'Costo/pieza'}
                               </div>
-                              <div style={{ fontWeight: 800, fontSize: 17, color: 'hsl(var(--primary))' }}>
+                              <div style={{ fontWeight: 800, fontSize: 17, color: item.activo ? 'hsl(var(--primary))' : 'hsl(var(--muted))' }}>
                                 {fmt(item.totalItem)}
                               </div>
                               {item.esLote && cantidadNum > 1 && (

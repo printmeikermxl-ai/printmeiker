@@ -19,9 +19,11 @@ const emptyForm = () => ({
   extras: [],
   notas: '',
   terminosCondiciones: '',
+  anticipoActivo: false,
   anticipo: 0,
-  anticipoPct: 0,
-  usarPorcentajeAnticipo: false,
+  anticipoPct: 50,
+  usarPorcentajeAnticipo: true,
+  fechaPagoAnticipo: '',
   aplicarIva: false,
   ivaPct: 16,
 });
@@ -111,9 +113,11 @@ export const CotizacionesPage = () => {
   const total = baseTotal + ivaAmt;
 
   // Anticipo calculation
-  const anticipoMonto = form.usarPorcentajeAnticipo
-    ? (total * Number(form.anticipoPct || 0)) / 100
-    : Number(form.anticipo || 0);
+  const anticipoMonto = form.anticipoActivo
+    ? (form.usarPorcentajeAnticipo
+      ? (total * Number(form.anticipoPct || 0)) / 100
+      : Number(form.anticipo || 0))
+    : 0;
   const saldoPendiente = total - anticipoMonto;
 
   // Extras helpers
@@ -293,9 +297,11 @@ export const CotizacionesPage = () => {
     const ivaAmt  = base * (ivaRate / 100);
     const tot = base + ivaAmt;
 
-    const ant = antPct
-      ? (tot * Number(formData.anticipoPct || 0)) / 100
-      : Number(formData.anticipo || 0);
+    const ant = formData.anticipoActivo
+      ? (antPct
+        ? (tot * Number(formData.anticipoPct || 0)) / 100
+        : Number(formData.anticipo || 0))
+      : 0;
     const saldo = tot - ant;
 
 
@@ -791,52 +797,154 @@ export const CotizacionesPage = () => {
 
                 <div className="divider" />
 
-                {/* Sección: Anticipo */}
-                <div className="cot-section-label">💰 Anticipo</div>
-                <div className="cot-anticipo-toggle">
-                  <label className="cot-toggle-label">
-                    <input
-                      type="checkbox"
-                      checked={form.usarPorcentajeAnticipo || false}
-                      onChange={e => set('usarPorcentajeAnticipo', e.target.checked)}
-                    />
-                    Calcular anticipo por porcentaje
-                  </label>
+                {/* Sección: Anticipo y Pagos */}
+                <div className="cot-section-label">💰 Anticipo y Pago</div>
+
+                {/* Toggle switch para activar anticipo */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '14px 16px', borderRadius: 10,
+                  background: form.anticipoActivo ? 'hsl(var(--primary) / 0.06)' : 'hsl(var(--bg))',
+                  border: `1.5px solid ${form.anticipoActivo ? 'hsl(var(--primary) / 0.3)' : 'hsl(var(--border))'}`,
+                  marginBottom: 14, transition: 'all 0.25s ease', cursor: 'pointer',
+                }} onClick={() => set('anticipoActivo', !form.anticipoActivo)}>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); set('anticipoActivo', !form.anticipoActivo); }}
+                    style={{
+                      width: 44, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer',
+                      background: form.anticipoActivo ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                      position: 'relative', display: 'inline-block', transition: 'background 0.25s',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span style={{
+                      position: 'absolute', top: 3,
+                      left: form.anticipoActivo ? 22 : 3,
+                      width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                      transition: 'left 0.25s', display: 'block',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+                    }} />
+                  </button>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: form.anticipoActivo ? 'hsl(var(--primary))' : 'hsl(var(--foreground))' }}>
+                      {form.anticipoActivo ? '✅ Anticipo activado' : 'Activar anticipo'}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'hsl(var(--muted))', marginTop: 2 }}>
+                      {form.anticipoActivo
+                        ? 'El anticipo se mostrará en la cotización y se descontará del total'
+                        : 'Activa cuando el cliente realice un pago de anticipo'}
+                    </div>
+                  </div>
                 </div>
-                <div className="form-grid">
-                  {form.usarPorcentajeAnticipo ? (
-                    <div className="form-group">
-                      <label className="form-label">Porcentaje de anticipo (%)</label>
-                      <input
-                        className="form-input"
-                        type="number" min="0" max="100" step="1"
-                        value={form.anticipoPct || ''}
-                        onChange={e => set('anticipoPct', e.target.value === '' ? 0 : Number(e.target.value))}
-                        placeholder="Ej. 50"
-                      />
-                      {Number(form.anticipoPct) > 0 && (
-                        <span className="cot-calc-hint">= {fmt((total * Number(form.anticipoPct)) / 100)} de anticipo</span>
+
+                {form.anticipoActivo && (
+                  <div style={{ animation: 'fadeIn 0.2s ease' }}>
+                    {/* Modo: porcentaje o monto fijo */}
+                    <div className="cot-anticipo-toggle">
+                      <div style={{
+                        display: 'flex', gap: 0, borderRadius: 8, overflow: 'hidden',
+                        border: '1.5px solid hsl(var(--border))', marginBottom: 12,
+                      }}>
+                        <button type="button" onClick={() => set('usarPorcentajeAnticipo', true)}
+                          style={{
+                            flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
+                            fontWeight: 600, fontSize: 13, transition: 'all 0.2s',
+                            background: form.usarPorcentajeAnticipo ? 'hsl(var(--primary))' : 'transparent',
+                            color: form.usarPorcentajeAnticipo ? '#fff' : 'hsl(var(--foreground))',
+                          }}>
+                          📊 Por porcentaje
+                        </button>
+                        <button type="button" onClick={() => set('usarPorcentajeAnticipo', false)}
+                          style={{
+                            flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
+                            fontWeight: 600, fontSize: 13, transition: 'all 0.2s',
+                            background: !form.usarPorcentajeAnticipo ? 'hsl(var(--primary))' : 'transparent',
+                            color: !form.usarPorcentajeAnticipo ? '#fff' : 'hsl(var(--foreground))',
+                          }}>
+                          💵 Monto fijo
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="form-grid">
+                      {form.usarPorcentajeAnticipo ? (
+                        <div className="form-group">
+                          <label className="form-label">Porcentaje de anticipo (%)</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {/* Quick buttons */}
+                            {[30, 50, 70].map(p => (
+                              <button key={p} type="button"
+                                className={`btn btn-sm ${Number(form.anticipoPct) === p ? 'btn-primary' : 'btn-ghost'}`}
+                                style={{ padding: '4px 12px', fontSize: 13, fontWeight: 700 }}
+                                onClick={() => set('anticipoPct', p)}
+                              >{p}%</button>
+                            ))}
+                            <input
+                              className="form-input"
+                              type="number" min="0" max="100" step="1"
+                              value={form.anticipoPct || ''}
+                              onChange={e => set('anticipoPct', e.target.value === '' ? 0 : Number(e.target.value))}
+                              placeholder="%"
+                              style={{ width: 80, textAlign: 'center' }}
+                            />
+                          </div>
+                          {Number(form.anticipoPct) > 0 && (
+                            <span className="cot-calc-hint">= {fmt((total * Number(form.anticipoPct)) / 100)} de anticipo</span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="form-group">
+                          <label className="form-label">Monto de anticipo ($)</label>
+                          <input
+                            className="form-input"
+                            type="number" min="0" step="any"
+                            value={form.anticipo || ''}
+                            onChange={e => set('anticipo', e.target.value === '' ? 0 : Number(e.target.value))}
+                            placeholder="0.00"
+                          />
+                        </div>
                       )}
+
+                      <div className="form-group">
+                        <label className="form-label">📅 Fecha de pago</label>
+                        <input
+                          className="form-input"
+                          type="date"
+                          value={form.fechaPagoAnticipo || ''}
+                          onChange={e => set('fechaPagoAnticipo', e.target.value)}
+                        />
+                        <span style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 2 }}>Registra cuándo pagó el cliente</span>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="form-group">
-                      <label className="form-label">Monto de anticipo</label>
-                      <input
-                        className="form-input"
-                        type="number" min="0" step="any"
-                        value={form.anticipo || ''}
-                        onChange={e => set('anticipo', e.target.value === '' ? 0 : Number(e.target.value))}
-                        placeholder="0.00"
-                      />
-                    </div>
-                  )}
-                  {anticipoMonto > 0 && (
-                    <div className="form-group">
-                      <label className="form-label">Saldo pendiente</label>
-                      <div className="cot-saldo-display">{fmt(saldoPendiente)}</div>
-                    </div>
-                  )}
-                </div>
+
+                    {/* Resumen visual del anticipo */}
+                    {anticipoMonto > 0 && (
+                      <div style={{
+                        borderRadius: 10, overflow: 'hidden', marginTop: 8,
+                        border: '1.5px solid hsl(var(--primary) / 0.25)',
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', background: 'hsl(var(--primary) / 0.06)' }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--primary))' }}>
+                            💰 Anticipo {form.usarPorcentajeAnticipo ? `(${form.anticipoPct}%)` : '(monto fijo)'}
+                          </span>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: 'hsl(var(--primary))' }}>{fmt(anticipoMonto)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', background: 'hsl(var(--bg))' }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--danger))' }}>📋 Saldo pendiente</span>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: saldoPendiente > 0 ? 'hsl(var(--danger))' : 'hsl(var(--success))' }}>
+                            {saldoPendiente > 0 ? fmt(saldoPendiente) : '✅ Liquidado'}
+                          </span>
+                        </div>
+                        {form.fechaPagoAnticipo && (
+                          <div style={{ padding: '6px 16px', background: 'hsl(var(--success) / 0.08)', fontSize: 12, color: 'hsl(var(--success))', fontWeight: 600, textAlign: 'center' }}>
+                            ✅ Pagado el {form.fechaPagoAnticipo}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="divider" />
 

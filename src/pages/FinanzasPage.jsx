@@ -239,7 +239,7 @@ export const FinanzasPage = () => {
               </tr>
             </thead>
             <tbody>
-              {[...filtered].sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(f => (
+              {[...filtered].sort((a, b) => { const d = new Date(b.fecha) - new Date(a.fecha); return d !== 0 ? d : (b.id || 0) - (a.id || 0); }).map(f => (
                 <tr key={f.id}>
                   <td><StatusBadge status={f.tipo} /></td>
                   <td><div style={{ fontWeight: 600 }}>{f.concepto}</div></td>

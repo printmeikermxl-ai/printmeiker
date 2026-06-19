@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Legend,
 } from 'recharts';
 import { useStore } from '../store/useStore';
 import { StatusBadge } from '../components/StatusBadge';
+import { NotesWidget } from '../components/NotesWidget';
 
 const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 0 })}`;
 
 export const Dashboard = () => {
-  const { pedidos, cotizaciones, finanzas, config } = useStore();
+  const { pedidos, cotizaciones, finanzas, config, negocioConfig } = useStore();
 
   // Stats
   const totalPedidos = pedidos.length;
@@ -41,15 +43,89 @@ export const Dashboard = () => {
     .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
     .slice(0, 6);
 
+  // Greeting logic
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 12) return '¡Buenos días';
+    if (hour >= 12 && hour < 19) return '¡Buenas tardes';
+    return '¡Buenas noches';
+  };
+
+  const getGreetingEmoji = () => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 12) return '☀️';
+    if (hour >= 12 && hour < 19) return '🌤️';
+    return '🌙';
+  };
+
+  const cotizacionesPendientes = cotizaciones.filter(c => c.estado === 'pendiente').length;
+
+  // Monthly sales goal calculation
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  const ingresosEsteMes = finanzas
+    .filter(f => {
+      if (f.tipo !== 'ingreso') return false;
+      if (!f.fecha) return false;
+      const fDate = new Date(f.fecha + 'T00:00:00');
+      return fDate.getMonth() === currentMonth && fDate.getFullYear() === currentYear;
+    })
+    .reduce((s, f) => s + f.monto, 0);
+
+  const goal = negocioConfig?.ingresoMensualDeseado || 15000;
+  const progressPercent = Math.min(100, Math.round((ingresosEsteMes / goal) * 100));
+
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Dashboard</h2>
-          <p className="page-subtitle">Bienvenida, {config.propietario} 👋</p>
+      {/* Premium Dashboard Welcome Banner */}
+      <div className="welcome-banner">
+        <div className="welcome-banner-left">
+          {config.profilePhoto ? (
+            <img src={config.profilePhoto} alt="Propietario" className="welcome-avatar" />
+          ) : (
+            <div className="welcome-avatar-initials">
+              {(config.propietario || config.appName || 'P')[0].toUpperCase()}
+            </div>
+          )}
+          <div className="welcome-text-container">
+            <h1 className="welcome-greeting">
+              {getGreeting()}, {config.propietario || 'Propietario'}! {getGreetingEmoji()}
+            </h1>
+            <p className="welcome-subtitle">
+              Qué gusto verte de nuevo en <span className="highlight">{config.negocio || config.appName || 'PrintMeiker'}</span>.
+              {pedidosPendientes > 0 ? (
+                <span> Tienes <strong className="warn-text">{pedidosPendientes}</strong> {pedidosPendientes === 1 ? 'pedido pendiente' : 'pedidos pendientes'} y <strong className="info-text">{cotizacionesPendientes}</strong> cotizaciones por revisar hoy.</span>
+              ) : (
+                <span> ¡Todo al día! No tienes pedidos pendientes de entrega en este momento. 🚀</span>
+              )}
+            </p>
+            <div className="welcome-actions">
+              <Link to="/pedidos" className="welcome-action-btn">
+                📦 Pedidos
+              </Link>
+              <Link to="/cotizaciones" className="welcome-action-btn">
+                📋 Cotizaciones
+              </Link>
+              <Link to="/finanzas" className="welcome-action-btn">
+                💰 Transacción
+              </Link>
+            </div>
+          </div>
         </div>
-        <div style={{ fontSize: '13px', color: 'hsl(var(--muted))' }}>
-          {new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+
+        {/* Goal progress widget */}
+        <div className="welcome-goal-widget">
+          <div className="goal-header">
+            <span className="goal-title">🎯 Meta Mensual</span>
+            <span className="goal-value">{progressPercent}%</span>
+          </div>
+          <div className="goal-bar-wrapper" title={`Meta mensual de ingresos: ${fmt(goal)}`}>
+            <div className="goal-bar-fill" style={{ width: `${progressPercent}%` }}></div>
+          </div>
+          <div className="goal-footer">
+            <span>{fmt(ingresosEsteMes)} facturado</span>
+            <span>Meta: {fmt(goal)}</span>
+          </div>
         </div>
       </div>
 
@@ -179,6 +255,9 @@ export const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Personal Notes Widget ── */}
+      <NotesWidget />
     </div>
   );
 };
