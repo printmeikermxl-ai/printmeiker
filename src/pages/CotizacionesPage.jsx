@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProductLinesInput } from '../components/ProductLinesInput';
 import { ETIQUETAS_BASE, EtiquetaBadge } from './ClientesPage';
 import { ComprobantesSection } from '../components/ComprobantesSection';
+import { FieldHelp } from '../components/FieldHelp';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
@@ -14,6 +15,7 @@ const ESTADOS = ['pendiente', 'aprobada', 'rechazada', 'vencida'];
 
 const emptyForm = () => ({
   cliente: '', telefono: '', email: '', direccion: '',
+  ciudad: '', estado_cliente: '',
   fecha: new Date().toISOString().split('T')[0],
   validez: '',
   estado: 'pendiente',
@@ -180,7 +182,9 @@ export const CotizacionesPage = () => {
       cliente: c.nombre,
       telefono: c.telefono || f.telefono,
       email: c.email || f.email,
-      direccion: c.direccion ? `${c.direccion}${c.ciudad ? ', ' + c.ciudad : ''}${c.estado ? ', ' + c.estado : ''}` : f.direccion,
+      direccion: c.direccion || f.direccion,
+      ciudad: c.ciudad || f.ciudad,
+      estado_cliente: c.estado || f.estado_cliente,
     }));
     setClienteSearch(c.nombre);
     setClienteDropdownOpen(false);
@@ -439,8 +443,13 @@ export const CotizacionesPage = () => {
             <div className="qd-client-name">{formData.cliente || '—'}</div>
             {formData.telefono && <div className="qd-client-detail">📞 {formData.telefono}</div>}
             {formData.email && <div className="qd-client-detail">✉️ {formData.email}</div>}
-            {formData.direccion && <div className="qd-client-detail">📍 {formData.direccion}</div>}
+            {(formData.direccion || formData.ciudad || formData.estado_cliente) && (
+              <div className="qd-client-detail">
+                📍 {[formData.direccion, formData.ciudad, formData.estado_cliente].filter(Boolean).join(', ')}
+              </div>
+            )}
           </div>
+
 
           {/* Payment Method Info (configurable from Settings) */}
           {config.infoPago && (
@@ -670,7 +679,10 @@ export const CotizacionesPage = () => {
                 <div className="cot-section-label">👤 Datos del cliente</div>
                 <div className="form-grid">
                   <div className="form-group" style={{ position: 'relative' }}>
-                    <label className="form-label">Cliente *</label>
+                    <label className="form-label">
+                      Cliente *
+                      <FieldHelp text="Nombre del cliente para quien se realiza la cotización. Puedes escribir directamente o seleccionar uno de tus clientes guardados." example="Ana Martínez" position="bottom" />
+                    </label>
                     <div className="cliente-search-wrap" style={{ position: 'relative' }}>
                       <div style={{ position: 'relative' }}>
                         <input
@@ -793,16 +805,39 @@ export const CotizacionesPage = () => {
                     </div>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Teléfono</label>
-                    <input className="form-input" value={form.telefono} onChange={e => set('telefono', e.target.value)} />
+                    <label className="form-label">
+                      Teléfono
+                      <FieldHelp text="Número de contacto del cliente. Aparecerá en el documento de cotización." example="555-123-4567" />
+                    </label>
+                    <input className="form-input" value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="555-000-0000" />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Email</label>
-                    <input className="form-input" type="email" value={form.email} onChange={e => set('email', e.target.value)} />
+                    <label className="form-label">
+                      Email
+                      <FieldHelp text="Correo del cliente. Útil para enviarle la cotización directamente." example="cliente@email.com" />
+                    </label>
+                    <input className="form-input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="correo@ejemplo.com" />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Dirección</label>
-                    <input className="form-input" value={form.direccion || ''} onChange={e => set('direccion', e.target.value)} placeholder="Opcional" />
+                    <label className="form-label">
+                      Dirección
+                      <FieldHelp text="Calle, número y colonia del cliente. Aparece en el documento de cotización." example="Av. Juárez 123, Col. Centro" />
+                    </label>
+                    <input className="form-input" value={form.direccion || ''} onChange={e => set('direccion', e.target.value)} placeholder="Calle, núm, colonia (opcional)" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Ciudad / Municipio
+                      <FieldHelp text="Ciudad o municipio donde vive el cliente. Se muestra en la dirección de la cotización." />
+                    </label>
+                    <input className="form-input" value={form.ciudad || ''} onChange={e => set('ciudad', e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Estado
+                      <FieldHelp text="Estado o provincia del cliente dentro de México." />
+                    </label>
+                    <input className="form-input" value={form.estado_cliente || ''} onChange={e => set('estado_cliente', e.target.value)} />
                   </div>
                 </div>
 
@@ -810,15 +845,25 @@ export const CotizacionesPage = () => {
                 <div className="cot-section-label">📋 Detalles de la cotización</div>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label className="form-label">Fecha</label>
+                    <label className="form-label">
+                      Fecha
+                      <FieldHelp text="Fecha en la que se genera esta cotización. Se muestra en el documento." />
+                    </label>
                     <input className="form-input" type="date" value={form.fecha} onChange={e => set('fecha', e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Válida hasta</label>
+                    <label className="form-label">
+                      Válida hasta
+                      <FieldHelp text="Fecha límite para que el cliente acepte esta cotización. Después de esta fecha puede marcarse como 'vencida'." />
+                    </label>
                     <input className="form-input" type="date" value={form.validez} onChange={e => set('validez', e.target.value)} />
+                    <span className="field-hint">Deja vacío si no tiene fecha de expiración</span>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Estado</label>
+                    <label className="form-label">
+                      Estado
+                      <FieldHelp text="Estado actual de la cotización: Pendiente (en espera), Aprobada (aceptada), Rechazada (no procede), Vencida (expiró)." />
+                    </label>
                     <select className="form-select" value={form.estado} onChange={e => set('estado', e.target.value)}>
                       {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>

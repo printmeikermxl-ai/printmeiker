@@ -4,6 +4,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProductLinesInput } from '../components/ProductLinesInput';
 import { ComprobantesSection } from '../components/ComprobantesSection';
+import { FieldHelp } from '../components/FieldHelp';
 
 
 const METODOS_PAGO_PED = [
@@ -515,33 +516,55 @@ export const PedidosPage = () => {
               <div className="modal-body">
                 <div className="form-grid">
                   <div className="form-group">
-                    <label className="form-label">Cliente *</label>
+                    <label className="form-label">
+                      Cliente *
+                      <FieldHelp text="Nombre completo de la persona o empresa que hace el pedido." example="María González" />
+                    </label>
                     <input className="form-input" required value={form.cliente} onChange={e => set('cliente', e.target.value)} placeholder="Nombre del cliente" />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Teléfono</label>
-                    <input className="form-input" value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="555-0000" />
+                    <label className="form-label">
+                      Teléfono
+                      <FieldHelp text="Número de WhatsApp o teléfono para contactar al cliente sobre su pedido." example="555-123-4567" />
+                    </label>
+                    <input className="form-input" value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="555-000-0000" />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Email</label>
-                    <input className="form-input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="correo@email.com" />
+                    <label className="form-label">
+                      Email
+                      <FieldHelp text="Correo electrónico del cliente, para enviarle confirmaciones o comprobantes." example="cliente@email.com" />
+                    </label>
+                    <input className="form-input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="correo@ejemplo.com" />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Estado</label>
+                    <label className="form-label">
+                      Estado
+                      <FieldHelp text="Estado actual del pedido: Pendiente (nuevo), En proceso (trabajando), Listo (terminado, por entregar), Completado (entregado y pagado), Cancelado." />
+                    </label>
                     <select className="form-select" value={form.estado} onChange={e => set('estado', e.target.value)}>
                       {ESTADOS.map(e => <option key={e} value={e}>{e.replace('_', ' ')}</option>)}
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Fecha del pedido</label>
+                    <label className="form-label">
+                      Fecha del pedido
+                      <FieldHelp text="Día en que el cliente realizó o confirmó el pedido." />
+                    </label>
                     <input className="form-input" type="date" value={form.fecha} onChange={e => set('fecha', e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Fecha de entrega</label>
+                    <label className="form-label">
+                      Fecha de entrega
+                      <FieldHelp text="Día acordado para entregar el pedido al cliente. Se muestra en la tabla principal." />
+                    </label>
                     <input className="form-input" type="date" value={form.fechaEntrega} onChange={e => set('fechaEntrega', e.target.value)} />
+                    <span className="field-hint">Deja vacío si aún no tiene fecha confirmada</span>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Origen / Canal de Venta</label>
+                    <label className="form-label">
+                      Origen / Canal de Venta
+                      <FieldHelp text="¿Cómo llegó este cliente a ti? (WhatsApp, Instagram, recomendado, etc.) Útil para saber qué canales generan más ventas." />
+                    </label>
                     <select className="form-select" value={form.canal || ''} onChange={e => set('canal', e.target.value)}>
                       {(canalesVenta || []).map(c => (
                         <option key={c.id} value={c.id}>{c.emoji || '🌐'} {c.nombre}</option>
@@ -565,21 +588,34 @@ export const PedidosPage = () => {
 
                 <div className="form-grid-3">
                   <div className="form-group">
-                    <label className="form-label">Otros cargos / IVA / Ajuste ($)</label>
+                    <label className="form-label">
+                      Otros cargos / IVA / Ajuste ($)
+                      <FieldHelp text="Agrega aquí cargos extras como envío, IVA, descuentos (valor negativo), o cualquier ajuste al total." example="+50 para envío, -100 para descuento" position="top" />
+                    </label>
                     <input className="form-input" type="number" step="0.01" value={form.ajuste || 0} onChange={e => set('ajuste', e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Anticipo recibido</label>
+                    <label className="form-label">
+                      Anticipo recibido
+                      <FieldHelp text="Dinero que ya pagó el cliente. Se descuenta del total para calcular el saldo que falta por cobrar." example="Si el total es $500 y pagó $200, el saldo será $300" />
+                    </label>
                     <input className="form-input" type="number" min="0" step="0.01" value={form.anticipo} onChange={e => set('anticipo', e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Saldo restante</label>
+                    <label className="form-label">
+                      Saldo restante
+                      <FieldHelp text="Lo que aún falta por cobrar. Se calcula automáticamente: Total − Anticipo." />
+                    </label>
                     <input className="form-input" value={fmt(saldo)} disabled style={{ background: 'hsl(var(--bg))' }} />
+                    <span className="field-hint">Calculado automáticamente</span>
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Notas</label>
+                  <label className="form-label">
+                    Notas
+                    <FieldHelp text="Especificaciones especiales del pedido, detalles de diseño, tallas, colores, instrucciones, etc." example="Camiseta talla M, color azul marino. Imprimir logo lado derecho." />
+                  </label>
                   <textarea className="form-textarea" value={form.notas} onChange={e => set('notas', e.target.value)} placeholder="Observaciones, especificaciones..." />
                 </div>
 
