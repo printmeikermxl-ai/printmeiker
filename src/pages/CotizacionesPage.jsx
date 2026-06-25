@@ -19,6 +19,7 @@ const emptyForm = () => ({
   fecha: new Date().toISOString().split('T')[0],
   validez: '',
   estado: 'pendiente',
+  fechaEntrega: '',
   productos: [{ nombre: '', cantidad: 1, precio: 0 }],
   extras: [],
   notas: '',
@@ -88,7 +89,7 @@ export const CotizacionesPage = () => {
     setAceptarModal({ cot, cotTotal });
     if (cot.anticipoActivo) {
       setAceptarForm({
-        fechaEntrega: '',
+        fechaEntrega: cot.fechaEntrega || '',
         pagoHoy: true,
         montoPago: String(cot.anticipoMonto || 0),
         metodoPago: cot.metodoPago || 'efectivo',
@@ -98,7 +99,7 @@ export const CotizacionesPage = () => {
       });
     } else {
       setAceptarForm({
-        fechaEntrega: '',
+        fechaEntrega: cot.fechaEntrega || '',
         pagoHoy: true,
         montoPago: String(cotTotal),
         metodoPago: 'efectivo',
@@ -427,6 +428,10 @@ export const CotizacionesPage = () => {
               {formData.validez && <>
                 <span className="qd-meta-label">Válida hasta:</span>
                 <span className="qd-meta-value">{formData.validez}</span>
+              </>}
+              {formData.fechaEntrega && <>
+                <span className="qd-meta-label">Fecha de entrega:</span>
+                <span className="qd-meta-value">{formData.fechaEntrega}</span>
               </>}
             </div>
           </div>
@@ -867,6 +872,14 @@ export const CotizacionesPage = () => {
                     <select className="form-select" value={form.estado} onChange={e => set('estado', e.target.value)}>
                       {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Fecha de entrega
+                      <FieldHelp text="Fecha comprometida para entregar el pedido al cliente." />
+                    </label>
+                    <input className="form-input" type="date" value={form.fechaEntrega || ''} onChange={e => set('fechaEntrega', e.target.value)} />
+                    <span className="field-hint">Deja vacío si no hay fecha de entrega definida</span>
                   </div>
                 </div>
 
