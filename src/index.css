@@ -28,6 +28,7 @@
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, .12), 0 4px 8px rgba(0, 0, 0, .06);
 
   --sidebar-w: 260px;
+  --sidebar-compact-w: 68px;
   --topbar-h: 64px;
   --transition: .2s ease;
 }
@@ -114,7 +115,13 @@ img {
   left: 0;
   bottom: 0;
   z-index: 100;
-  transition: transform var(--transition);
+  transition: width 0.3s ease, transform var(--transition);
+  overflow: hidden;
+}
+
+/* ── Compact sidebar ── */
+.sidebar.sidebar-compact {
+  width: var(--sidebar-compact-w);
 }
 
 .sidebar-overlay {
@@ -131,6 +138,13 @@ img {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.3s ease;
+}
+
+/* When sidebar is compact, shift main content */
+.sidebar-compact ~ .main-content,
+.has-compact-sidebar .main-content {
+  margin-left: var(--sidebar-compact-w);
 }
 
 .topbar {
@@ -508,6 +522,7 @@ img {
 /* ── Table ───────────────────────────────────────────────────────────────── */
 .table-wrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: var(--radius);
   border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-sm);
@@ -1240,7 +1255,7 @@ tbody tr:hover {
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .sidebar {
     transform: translateX(-100%);
   }
@@ -1297,13 +1312,74 @@ tbody tr:hover {
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .stat-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
   .product-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+  }
+
+  .form-grid,
+  .form-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    max-width: 100%;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+  }
+
+  .product-line {
+    grid-template-columns: 1fr 1fr auto;
+    gap: 8px;
+  }
+
+  .product-line > *:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-header {
+    padding: 16px 16px 12px;
+  }
+
+  .modal-footer {
+    padding: 12px 16px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+  }
+
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .topbar-title {
+    font-size: 15px;
   }
 }
 
@@ -1585,9 +1661,9 @@ tbody tr:hover {
 /* ── Quote Document (qd-*) — colores 100% dinámicos por tema ─────────────── */
 .qd-doc {
   background: #ffffff;
-  /* Tamaño carta exacto: 8.5" × 11" a 96 DPI */
-  width: 816px;
-  min-height: 1056px;
+  /* Tamaño A4 exacto: 210mm × 297mm (794px × 1123px a 96 DPI) */
+  width: 794px;
+  min-height: 1123px;
   margin: 0 auto;
   padding: 48px 56px;
   border-radius: 8px;
@@ -1899,6 +1975,7 @@ tbody tr:hover {
 
 /* ── Footer ── */
 .qd-footer {
+  margin-top: auto;
   text-align: center;
   font-size: 13px;
   font-weight: 600;
@@ -1912,58 +1989,76 @@ tbody tr:hover {
 @media print {
   @page {
     size: letter;
-    margin: 0.4in;
+    margin: 0.3in;
   }
 
-  .app-layout,
-  .topbar,
-  .sidebar,
-  .modal-header,
-  .modal-footer,
-  .btn,
-  .modal-overlay::before,
-  header,
-  aside {
+  /* Ocultar todo excepto el documento de cotización */
+  body > *:not(.modal-overlay) {
     display: none !important;
   }
 
-  body,
-  html {
-    background: #ffffff !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
   .modal-overlay {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    background: transparent !important;
-    display: block !important;
+    position: fixed !important;
+    inset: 0 !important;
+    background: #ffffff !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
     padding: 0 !important;
-    margin: 0 !important;
+    overflow: visible !important;
     z-index: auto !important;
   }
 
   .modal {
     width: 100% !important;
     max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
     margin: 0 !important;
     box-shadow: none !important;
     border: none !important;
+    border-radius: 0 !important;
     background: #ffffff !important;
     padding: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .modal-header,
+  .modal-footer {
+    display: none !important;
+  }
+
+  .modal-body {
+    padding: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
   }
 
   .qd-doc {
     border: none !important;
     box-shadow: none !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     width: 100% !important;
-    padding: 0 !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    padding: 20px !important;
     border-radius: 0 !important;
+    page-break-inside: avoid;
+  }
+
+  /* Asegurar que los gradientes y colores se impriman */
+  .qd-th {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .qd-accent-bar,
+  .qd-grand-total-row,
+  .qd-logo-placeholder {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
 
@@ -2196,7 +2291,7 @@ tbody tr:hover {
   text-decoration: line-through;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .calendar-grid-header-cell {
     padding: 6px 2px;
     font-size: 10px;
@@ -2669,7 +2764,7 @@ tbody tr:hover {
 }
 
 /* Responsive: ocultar panel izquierdo en móvil */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .auth-page {
     flex-direction: column;
     background: #0f0f1a;
@@ -3402,6 +3497,7 @@ html, body, #root {
   display: flex;
   gap: 12px;
   margin-top: 4px;
+  flex-wrap: wrap;
 }
 
 .welcome-action-btn {
@@ -3483,7 +3579,7 @@ html, body, #root {
   justify-content: space-between;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .welcome-banner {
     flex-direction: column;
     align-items: stretch;
@@ -4033,6 +4129,7 @@ html, body, #root {
     min-width: 100%;
   }
 }
+
 @media (max-width: 768px) {
   .welcome-banner {
     flex-direction: column;
@@ -4048,6 +4145,14 @@ html, body, #root {
   }
   .welcome-goal-widget {
     min-width: 100%;
+  }
+  .calendar-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .calendar-grid-header,
+  .calendar-grid-row {
+    min-width: 700px;
   }
 }
 
@@ -4826,4 +4931,87 @@ html, body, #root {
   }
   .nw-modal { max-width: 100%; border-radius: var(--radius); }
 }
-
+
+/* ══════════════════════════════════════════════════════════
+   PERSONALIZACIÓN DE INTERFAZ
+   ══════════════════════════════════════════════════════════ */
+
+/* No animations mode */
+.no-animations *,
+.no-animations *::before,
+.no-animations *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* Compact cards mode – reduce vertical padding */
+.compact-cards table td,
+.compact-cards table th {
+  padding: 8px 14px !important;
+}
+.compact-cards .card-body {
+  padding: 12px 16px !important;
+}
+.compact-cards .modal-body {
+  padding: 12px 16px !important;
+}
+
+/* Sidebar compact mode (only active on desktop) */
+@media (min-width: 1025px) {
+  .sidebar-compact .sidebar {
+    width: 68px !important;
+  }
+  .sidebar-compact .sidebar .nav-label,
+  .sidebar-compact .sidebar .sidebar-footer-text,
+  .sidebar-compact .sidebar .app-name {
+    display: none !important;
+  }
+  .sidebar-compact .sidebar .nav-item {
+    justify-content: center !important;
+    padding: 10px !important;
+  }
+  .sidebar-compact .main-content {
+    margin-left: 68px !important;
+  }
+}
+
+/* Theme color swatch button (used in theme picker) */
+.theme-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.theme-swatch:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+.theme-swatch.active {
+  border-color: white;
+  outline: 3px solid currentColor;
+  transform: scale(1.1);
+}
+
+/* ── Animations used by ComprobantesSection & modals ─────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

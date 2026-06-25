@@ -370,6 +370,7 @@ const emptyForm = () => ({
   categoria: '', activo: true,
   tieneMayoreo: false, mayoreoMinPiezas: '', mayoreo_precio: '',
   costoProd: '',
+  foto: '',
 });
 
 const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
@@ -420,6 +421,27 @@ export const CatalogoPage = () => {
     if (editId) store.updateProducto(editId, data);
     else store.addProducto(data);
     setModal(null);
+  };
+
+  const handleFotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 400;
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+        else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        setForm(f => ({ ...f, foto: canvas.toDataURL('image/jpeg', 0.82) }));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
   };
 
   const toggleActivo = (p) => store.updateProducto(p.id, { activo: !p.activo });
@@ -479,6 +501,14 @@ export const CatalogoPage = () => {
             const cat = categoriasProducto.find(c => c.nombre === p.categoria);
             return (
               <div key={p.id} className="product-card" style={{ opacity: p.activo ? 1 : 0.55 }}>
+                {/* Foto del producto */}
+                <div style={{ margin: '-16px -16px 12px -16px', overflow: 'hidden', borderRadius: '12px 12px 0 0', height: 140, background: 'hsl(var(--bg))', display: 'grid', placeItems: 'center', borderBottom: '1px solid hsl(var(--border) / 0.5)' }}>
+                  {p.foto ? (
+                    <img src={p.foto} alt={p.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ fontSize: 44, opacity: 0.3 }}>📦</div>
+                  )}
+                </div>
                 <div className="product-card-header">
                   <div>
                     <div className="product-name">{p.nombre}</div>
@@ -567,7 +597,14 @@ export const CatalogoPage = () => {
                 const cat = categoriasProducto.find(c => c.nombre === p.categoria);
                 return (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 600 }}>{p.nombre}</td>
+                    <td style={{ fontWeight: 600 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {p.foto && (
+                          <img src={p.foto} alt={p.nombre} style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid hsl(var(--border))' }} />
+                        )}
+                        {p.nombre}
+                      </div>
+                    </td>
                     <td>
                       {cat ? (
                         <span style={{
@@ -622,6 +659,46 @@ export const CatalogoPage = () => {
             </div>
             <form onSubmit={handleSave}>
               <div className="modal-body">
+                {/* ── Foto del producto ── */}
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>📷 Imagen del producto <span style={{ fontWeight: 400, color: 'hsl(var(--muted))' }}>opcional</span></label>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: form.foto ? '2px solid hsl(var(--primary))' : '2px dashed hsl(var(--border))',
+                    borderRadius: 14,
+                    padding: 20,
+                    background: 'hsl(var(--bg) / 0.3)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    textAlign: 'center',
+                  }}>
+                    {form.foto ? (
+                      <div style={{ position: 'relative', width: '100%', height: 180, borderRadius: 8, overflow: 'hidden' }}>
+                        <img src={form.foto} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#0f0f1a' }} />
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          style={{ position: 'absolute', top: 8, right: 8, padding: '4px 8px', borderRadius: 6, fontSize: 11, background: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setForm(f => ({ ...f, foto: '' })); }}
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      </div>
+                    ) : (
+                      <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', width: '100%', height: 120, justifyContent: 'center', margin: 0 }}>
+                        <span style={{ fontSize: 36, marginBottom: 6 }}>🖼️</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'hsl(var(--primary))' }}>Haz clic aquí para subir una imagen</span>
+                        <span style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 3 }}>Formatos permitidos: JPG, PNG (Recomendado 16:9)</span>
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFotoUpload} />
+                      </label>
+                    )}
+                  </div>
+                </div>
                 <div className="form-group">
                   <label className="form-label">Nombre *</label>
                   <input className="form-input" required value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Ej: Tarjetas de presentación" />

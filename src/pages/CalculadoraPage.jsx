@@ -103,9 +103,12 @@ export const CalculadoraPage = () => {
   const [materiales, setMateriales] = useState(() => {
     const saved = loadLS(LS_KEY_MATERIALES, null);
     if (saved && Array.isArray(saved) && saved.length > 0) {
-      return saved.map(m => m.modoCompra === 'metro2' ? { ...m, modoCompra: 'individual' } : m);
+      return saved.map(m => ({
+        costoM2: 0, anchoCm: 10, altoCm: 10,
+        ...m,
+      }));
     }
-    return [{ id: uid(), tipo: 'Bond', tipoPersonalizado: '', modoCompra: 'individual', costoUnitario: 8, costoPaquete: 0, cantidadPaquete: 1, piezasPorUnidad: 1, merma: 0 }];
+    return [{ id: uid(), tipo: 'Bond', tipoPersonalizado: '', modoCompra: 'individual', costoUnitario: 8, costoPaquete: 0, cantidadPaquete: 1, piezasPorUnidad: 1, merma: 0, costoM2: 0, anchoCm: 10, altoCm: 10 }];
   });  /* ── Empaque ─────────────────────────────────────────────────────────────────── */
   const LS_KEY_EMPAQUE = 'calc_empaque';
   const [incluirEmpaque, setIncluirEmpaque] = useState(() => loadLS('calc_incluir_empaque', false));
@@ -138,6 +141,7 @@ export const CalculadoraPage = () => {
   const addMaterial = () => setMateriales(prev => [...prev, {
     id: uid(), tipo: 'Bond', tipoPersonalizado: '', modoCompra: 'individual',
     costoUnitario: 8, costoPaquete: 0, cantidadPaquete: 1, piezasPorUnidad: 1, merma: 0,
+    costoM2: 0, anchoCm: 10, altoCm: 10,
   }]);
 
   const updateMaterial = (id, field, value) =>
@@ -317,10 +321,18 @@ export const CalculadoraPage = () => {
     const costPaqNum = Number(mat.costoPaquete || 0);
     const piezasPorUnd = Math.max(1, Number(mat.piezasPorUnidad || 1));
     const mermaPorc = Number(mat.merma || 0);
-    const costoUnit = mat.modoCompra === 'paquete'
-      ? costPaqNum / cantPaqNum
-      : Number(mat.costoUnitario || 0);
-    const efect = (costoUnit / piezasPorUnd) * (1 + mermaPorc / 100);
+    let costoUnit, efect;
+    if (mat.modoCompra === 'metro2') {
+      const area = (Number(mat.anchoCm || 0) * Number(mat.altoCm || 0)) / 10000;
+      const costoMat = area * Number(mat.costoM2 || 0);
+      efect = costoMat * (1 + mermaPorc / 100);
+      costoUnit = Number(mat.costoM2 || 0);
+    } else {
+      costoUnit = mat.modoCompra === 'paquete'
+        ? costPaqNum / cantPaqNum
+        : Number(mat.costoUnitario || 0);
+      efect = (costoUnit / piezasPorUnd) * (1 + mermaPorc / 100);
+    }
     const nombre = mat.tipo === 'Otro' && mat.tipoPersonalizado ? mat.tipoPersonalizado : (mat.tipo || 'Material');
     return { ...mat, costoUnit, efect, nombre };
   });
@@ -356,6 +368,8 @@ export const CalculadoraPage = () => {
     const modoStr = materiales.map(m =>
       m.modoCompra === 'paquete'
         ? `${m.tipo} (Paquete ${m.cantidadPaquete}u · ${fmt(m.costoPaquete)})`
+        : m.modoCompra === 'metro2'
+        ? `${m.tipo} (Metro² · ${m.anchoCm}×${m.altoCm}cm · $${m.costoM2}/m²)`
         : `${m.tipo} (Individual)`
     ).join(', ');
     const manoObraStr = form.modoManoObra === 'hora'
@@ -512,6 +526,11 @@ export const CalculadoraPage = () => {
                           onClick={() => updateMaterial(mat.id, 'modoCompra', 'paquete')}>
                           📦 Paquete
                         </button>
+                        <button type="button"
+                          className={`modo-btn${mat.modoCompra === 'metro2' ? ' active' : ''}`}
+                          onClick={() => updateMaterial(mat.id, 'modoCompra', 'metro2')}>
+                          📐 Metro²
+                        </button>
                       </div>
                     </div>
 
@@ -551,30 +570,79 @@ export const CalculadoraPage = () => {
                       </div>
                     )}
 
-                    {/* Rendimiento del material (Individual / Paquete) */}
-                    <div className="mat-section-title" style={{ marginTop: 6 }}>⚙️ Rendimiento del material</div>
-                    <div className="form-grid">
-                      <div className="form-group">
-                        <label className="form-label">Piezas producibles por unidad</label>
-                        <input className="form-input" type="number" min="1" step="1"
-                          value={mat.piezasPorUnidad}
-                          onChange={e => updateMaterial(mat.id, 'piezasPorUnidad', e.target.value)}
-                          placeholder="Ej: 12" />
-                        <span className="calc-hint">Ej: 12 tarjetas por hoja</span>
+                    {/* Rendimiento del material — Metro² muestra campos especiales */}
+                    {mat.modoCompra === 'metro2' ? (
+                      <div style={{ animation: 'fadeIn 0.2s ease' }}>
+                        <div className="mat-section-title" style={{ marginTop: 6 }}>📐 Cálculo por Metro²</div>
+                        <div className="form-grid">
+                          <div className="form-group">
+                            <label className="form-label">Costo por m² ($)</label>
+                            <input className="form-input" type="number" min="0" step="0.01"
+                              value={mat.costoM2 ?? 0}
+                              onChange={e => updateMaterial(mat.id, 'costoM2', e.target.value)}
+                              placeholder="Ej: 150" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Ancho del diseño (cm)</label>
+                            <input className="form-input" type="number" min="0" step="0.1"
+                              value={mat.anchoCm ?? 10}
+                              onChange={e => updateMaterial(mat.id, 'anchoCm', e.target.value)}
+                              placeholder="Ej: 10" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Alto del diseño (cm)</label>
+                            <input className="form-input" type="number" min="0" step="0.1"
+                              value={mat.altoCm ?? 10}
+                              onChange={e => updateMaterial(mat.id, 'altoCm', e.target.value)}
+                              placeholder="Ej: 4" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">
+                              Desperdicio / merma: <strong style={{ color: 'hsl(var(--danger))' }}>{mat.merma}%</strong>
+                            </label>
+                            <input type="range" min="0" max="50" step="1"
+                              value={mat.merma}
+                              onChange={e => updateMaterial(mat.id, 'merma', e.target.value)}
+                              style={{ width: '100%', accentColor: 'hsl(var(--danger))' }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'hsl(var(--muted))' }}>
+                              <span>0%</span><span>10%</span><span>20%</span><span>30%</span><span>40%</span><span>50%</span>
+                            </div>
+                          </div>
+                        </div>
+                        {Number(mat.anchoCm) > 0 && Number(mat.altoCm) > 0 && (
+                          <div className="calc-hint" style={{ marginBottom: 10 }}>
+                            Área: <strong>{((Number(mat.anchoCm) * Number(mat.altoCm)) / 10000).toFixed(6)} m²</strong>
+                            {' · '} Costo base: <strong>{fmt((Number(mat.anchoCm) * Number(mat.altoCm) / 10000) * Number(mat.costoM2 || 0))}</strong>
+                          </div>
+                        )}
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">
-                          Desperdicio / merma: <strong style={{ color: 'hsl(var(--danger))' }}>{mat.merma}%</strong>
-                        </label>
-                        <input type="range" min="0" max="50" step="1"
-                          value={mat.merma}
-                          onChange={e => updateMaterial(mat.id, 'merma', e.target.value)}
-                          style={{ width: '100%', accentColor: 'hsl(var(--danger))' }} />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'hsl(var(--muted))' }}>
-                          <span>0%</span><span>10%</span><span>20%</span><span>30%</span><span>40%</span><span>50%</span>
+                    ) : (
+                      <div>
+                        <div className="mat-section-title" style={{ marginTop: 6 }}>⚙️ Rendimiento del material</div>
+                        <div className="form-grid">
+                          <div className="form-group">
+                            <label className="form-label">Piezas producibles por unidad</label>
+                            <input className="form-input" type="number" min="1" step="1"
+                              value={mat.piezasPorUnidad}
+                              onChange={e => updateMaterial(mat.id, 'piezasPorUnidad', e.target.value)}
+                              placeholder="Ej: 12" />
+                            <span className="calc-hint">Ej: 12 tarjetas por hoja</span>
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">
+                              Desperdicio / merma: <strong style={{ color: 'hsl(var(--danger))' }}>{mat.merma}%</strong>
+                            </label>
+                            <input type="range" min="0" max="50" step="1"
+                              value={mat.merma}
+                              onChange={e => updateMaterial(mat.id, 'merma', e.target.value)}
+                              style={{ width: '100%', accentColor: 'hsl(var(--danger))' }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'hsl(var(--muted))' }}>
+                              <span>0%</span><span>10%</span><span>20%</span><span>30%</span><span>40%</span><span>50%</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Resultado de este material */}
                     <div className="mat-result-box" style={{ marginTop: 6 }}>

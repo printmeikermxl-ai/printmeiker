@@ -5,8 +5,10 @@ import { StatusBadge } from '../components/StatusBadge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProductLinesInput } from '../components/ProductLinesInput';
 import { ETIQUETAS_BASE, EtiquetaBadge } from './ClientesPage';
+import { ComprobantesSection } from '../components/ComprobantesSection';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+
 
 const ESTADOS = ['pendiente', 'aprobada', 'rechazada', 'vencida'];
 
@@ -24,8 +26,12 @@ const emptyForm = () => ({
   anticipoPct: 50,
   usarPorcentajeAnticipo: true,
   fechaPagoAnticipo: '',
+  metodoPago: 'efectivo',
+  montoEfectivo: '',
+  montoTarjeta: '',
   aplicarIva: false,
   ivaPct: 16,
+  mostrarFotos: false,
 });
 
 // Helper — suma todos los extras
@@ -54,6 +60,97 @@ export const CotizacionesPage = () => {
   const [editId, setEditId] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const printRef = useRef();
+
+  // ── Modal Aceptar Pedido ─────────────────────────────────────────────────
+  const [aceptarModal, setAceptarModal] = useState(null); // { cot, total }
+  const [aceptarForm, setAceptarForm] = useState({
+    fechaEntrega: '',
+    pagoHoy: true,
+    montoPago: '',
+    metodoPago: 'efectivo',
+    montoEfectivo: '',
+    montoTarjeta: '',
+    registrarFinanzas: true,
+  });
+  const setAF = (k, v) => setAceptarForm(f => ({ ...f, [k]: v }));
+
+  const METODOS_PAGO_COT = [
+    { value: 'efectivo',      label: 'Efectivo',                  icon: '💵', color: '#16a34a', bg: '#f0fdf4' },
+    { value: 'transferencia', label: 'Transferencia',             icon: '🏦', color: '#2563eb', bg: '#dbeafe' },
+    { value: 'debito',        label: 'Tarjeta de débito',         icon: '💳', color: '#7c3aed', bg: '#ede9fe' },
+    { value: 'credito',       label: 'Tarjeta de crédito',        icon: '💳', color: '#db2777', bg: '#fce7f3' },
+    { value: 'mixto',         label: 'Mixto (efectivo+tarjeta)', icon: '🔀', color: '#d97706', bg: '#fef3c7' },
+  ];
+
+  const abrirAceptarModal = (cot, cotTotal) => {
+    setAceptarModal({ cot, cotTotal });
+    if (cot.anticipoActivo) {
+      setAceptarForm({
+        fechaEntrega: '',
+        pagoHoy: true,
+        montoPago: String(cot.anticipoMonto || 0),
+        metodoPago: cot.metodoPago || 'efectivo',
+        montoEfectivo: cot.montoEfectivo != null ? String(cot.montoEfectivo) : '',
+        montoTarjeta: cot.montoTarjeta != null ? String(cot.montoTarjeta) : '',
+        registrarFinanzas: true,
+      });
+    } else {
+      setAceptarForm({
+        fechaEntrega: '',
+        pagoHoy: true,
+        montoPago: String(cotTotal),
+        metodoPago: 'efectivo',
+        montoEfectivo: '',
+        montoTarjeta: '',
+        registrarFinanzas: true,
+      });
+    }
+  };
+
+  const confirmarAceptarPedido = () => {
+    const { cot, cotTotal } = aceptarModal;
+    // 1. Marcar cotización como aprobada
+    store.updateCotizacion(cot.id, { estado: 'aprobada' });
+    // 2. Crear pedido (si no existe ya)
+    const yaExiste = store.getState().pedidos.some(p => p.cotizacionId === cot.id || (p.notas && p.notas.includes(cot.id)));
+    if (!yaExiste) {
+      let montoAnticipo = 0;
+      if (aceptarForm.pagoHoy) {
+        montoAnticipo = aceptarForm.metodoPago === 'mixto'
+          ? (Number(aceptarForm.montoEfectivo || 0) + Number(aceptarForm.montoTarjeta || 0))
+          : Number(aceptarForm.montoPago || 0);
+      }
+      store.addPedido({
+        cliente: cot.cliente, telefono: cot.telefono, email: cot.email,
+        fecha: new Date().toISOString().split('T')[0],
+        fechaEntrega: aceptarForm.fechaEntrega,
+        estado: 'pendiente', productos: cot.productos,
+        total: cotTotal, anticipo: montoAnticipo,
+        notas: cot.notas || '',
+        cotizacionId: cot.id,
+        costoExtra: cot.costoExtra || 0,
+        metodoPago: aceptarForm.pagoHoy ? aceptarForm.metodoPago : '',
+      });
+      // 3. Registrar en finanzas si el usuario lo quiere
+      if (aceptarForm.pagoHoy && aceptarForm.registrarFinanzas && montoAnticipo > 0) {
+        const categoria = cot.productos?.[0]?.nombre || 'Ventas';
+        store.addFinanza({
+          tipo: 'ingreso',
+          concepto: `Anticipo Cotización ${cot.id} - ${cot.cliente}`,
+          monto: montoAnticipo,
+          montoEfectivo: aceptarForm.metodoPago === 'mixto' ? Number(aceptarForm.montoEfectivo || 0) : null,
+          montoTarjeta:  aceptarForm.metodoPago === 'mixto' ? Number(aceptarForm.montoTarjeta  || 0) : null,
+          costoProd: null,
+          fecha: new Date().toISOString().split('T')[0],
+          categoria,
+          metodoPago: aceptarForm.metodoPago,
+        });
+      }
+    }
+    setAceptarModal(null);
+    if (modal) setModal(null);
+    setTimeout(() => navigate('/pedidos'), 200);
+  };
 
   // ── Buscador de clientes ─────────────────────────────────────────────────────
   const [clienteSearch, setClienteSearch] = useState('');
@@ -147,20 +244,10 @@ export const CotizacionesPage = () => {
 
   const updateEstado = (id, nuevoEstado) => {
     const cot = cotizaciones.find(c => c.id === id);
-    store.updateCotizacion(id, { estado: nuevoEstado });
     if (nuevoEstado === 'aprobada' && cot) {
-      const yaExiste = store.getState().pedidos.some(p => p.notas && p.notas.includes(id));
-      if (!yaExiste) {
-        store.addPedido({
-          cliente: cot.cliente, telefono: cot.telefono, email: cot.email,
-          fecha: new Date().toISOString().split('T')[0], fechaEntrega: '',
-          estado: 'pendiente', productos: cot.productos,
-          total: cot.total, anticipo: cot.anticipoMonto || 0,
-          notas: `Generado desde cotización ${id}`,
-          costoExtra: cot.costoExtra || 0,
-        });
-      }
-      setTimeout(() => navigate('/pedidos'), 300);
+      abrirAceptarModal(cot, cot.total || 0);
+    } else {
+      store.updateCotizacion(id, { estado: nuevoEstado });
     }
   };
 
@@ -168,30 +255,38 @@ export const CotizacionesPage = () => {
     window.print();
   };
 
+  // ── Helper: esperar que todas las imágenes del elemento carguen ──────────
+  const waitForImages = (el) => {
+    const imgs = Array.from(el.querySelectorAll('img'));
+    if (imgs.length === 0) return Promise.resolve();
+    return Promise.all(imgs.map(img =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise(res => { img.onload = res; img.onerror = res; })
+    ));
+  };
+
+  // ── Helper: preparar elemento para captura ──────────────────────────────
+  const prepareCapture = async (element) => {
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;overflow:visible;background:#fff;z-index:-1;';
+    const clone = element.cloneNode(true);
+    clone.style.cssText = 'width:794px;margin:0;padding:48px;box-sizing:border-box;border:none;box-shadow:none;min-height:1123px;';
+    container.appendChild(clone);
+    document.body.appendChild(container);
+    // Esperar que carguen imágenes en el clon (logo, fotos de productos)
+    await waitForImages(clone);
+    return { container, clone };
+  };
+
   const handleDownloadPDF = async () => {
     const element = document.getElementById('printable-quote-doc');
     if (!element) return;
-
-    const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '816px';
-    container.style.overflow = 'visible';
-    container.style.backgroundColor = '#ffffff';
-
-    const clone = element.cloneNode(true);
-    clone.style.width = '816px';
-    clone.style.margin = '0';
-    clone.style.padding = '48px';
-    clone.style.boxSizing = 'border-box';
-    clone.style.border = 'none';
-    clone.style.boxShadow = 'none';
-
-    container.appendChild(clone);
-    document.body.appendChild(container);
-
+    let container;
     try {
+      const result = await prepareCapture(element);
+      container = result.container;
+      const clone = result.clone;
       const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
@@ -202,47 +297,49 @@ export const CotizacionesPage = () => {
         windowHeight: clone.scrollHeight,
       });
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'px',
-        format: [816, clone.scrollHeight],
-      });
-
-      pdf.addImage(imgData, 'JPEG', 0, 0, 816, clone.scrollHeight);
+      
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = 794;
+      const imgHeight = clone.scrollHeight;
+      
+      const ratio = pdfWidth / imgWidth;
+      const scaledHeight = imgHeight * ratio;
+      
+      let heightLeft = scaledHeight;
+      let position = 0;
+      
+      // First page
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledHeight);
+      heightLeft -= pdfHeight;
+      
+      // Add pages if long quote
+      while (heightLeft > 1) {
+        position = heightLeft - scaledHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledHeight);
+        heightLeft -= pdfHeight;
+      }
+      
       pdf.save(`Cotizacion_${editId || 'documento'}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Hubo un error al generar el PDF.');
     } finally {
-      document.body.removeChild(container);
+      if (container && document.body.contains(container)) document.body.removeChild(container);
     }
   };
 
   const handleDownloadImage = async () => {
     const element = document.getElementById('printable-quote-doc');
     if (!element) return;
-
-    const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '816px';
-    container.style.overflow = 'visible';
-    container.style.backgroundColor = '#ffffff';
-
-    const clone = element.cloneNode(true);
-    clone.style.width = '816px';
-    clone.style.margin = '0';
-    clone.style.padding = '48px';
-    clone.style.boxSizing = 'border-box';
-    clone.style.border = 'none';
-    clone.style.boxShadow = 'none';
-
-    container.appendChild(clone);
-    document.body.appendChild(container);
-
+    let container;
     try {
+      const result = await prepareCapture(element);
+      container = result.container;
+      const clone = result.clone;
       const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
@@ -252,7 +349,6 @@ export const CotizacionesPage = () => {
         height: clone.scrollHeight,
         windowHeight: clone.scrollHeight,
       });
-
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `Cotizacion_${editId || 'documento'}.png`;
@@ -262,30 +358,18 @@ export const CotizacionesPage = () => {
       console.error('Error generating image:', error);
       alert('Hubo un error al descargar la imagen.');
     } finally {
-      document.body.removeChild(container);
+      if (container && document.body.contains(container)) document.body.removeChild(container);
     }
   };
 
   const handleConvertirPedido = (c) => {
-    const yaExiste = store.getState().pedidos.some(p => p.notas && p.notas.includes(c.id));
-    if (!yaExiste) {
-      store.addPedido({
-        cliente: c.cliente, telefono: c.telefono, email: c.email,
-        fecha: new Date().toISOString().split('T')[0], fechaEntrega: '',
-        estado: 'pendiente', productos: c.productos, total: c.total,
-        anticipo: c.anticipoMonto || 0, notas: `Generado desde cotización ${c.id}`,
-        costoExtra: c.costoExtra || 0,
-      });
-    }
-    store.updateCotizacion(c.id, { estado: 'aprobada' });
-    setModal(null);
-    navigate('/pedidos');
+    abrirAceptarModal(c, c.total || 0);
   };
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }));
 
   // ── Quote Document Component ─────────────────────────────────────────────
-  const QuoteDocument = ({ formData, quoteId }) => {
+  const QuoteDocument = ({ formData, quoteId, catalogo: catalogoRef = [] }) => {
     const sub = formData.productos.reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0);
     const extrasArr = formData.extras || [];
     const extrasTotal = sumExtras(extrasArr);
@@ -374,6 +458,7 @@ export const CotizacionesPage = () => {
           <table className="qd-table">
             <thead>
               <tr>
+                {formData.mostrarFotos && <th className="qd-th" style={{ width: 56 }}>Foto</th>}
                 <th className="qd-th qd-th-no">No.</th>
                 <th className="qd-th qd-th-desc">Descripción del artículo</th>
                 <th className="qd-th qd-th-price">Precio</th>
@@ -383,15 +468,33 @@ export const CotizacionesPage = () => {
             </thead>
             <tbody>
               {/* Only product/service lines — no extra cost row here */}
-              {formData.productos.map((line, i) => (
-                <tr key={i} className={i % 2 === 1 ? 'qd-tr-alt' : ''}>
-                  <td className="qd-td qd-td-no">{String(i + 1).padStart(2, '0')}</td>
-                  <td className="qd-td qd-td-desc">{line.nombre || '—'}</td>
-                  <td className="qd-td qd-td-price">{fmt(line.precio)}</td>
-                  <td className="qd-td qd-td-qty">{line.cantidad}</td>
-                  <td className="qd-td qd-td-total">{fmt(Number(line.cantidad) * Number(line.precio))}</td>
-                </tr>
-              ))}
+              {formData.productos.map((line, i) => {
+                const prodCat = formData.mostrarFotos
+                  ? catalogoRef.find(p => p.nombre === line.nombre)
+                  : null;
+                return (
+                  <tr key={i} className={i % 2 === 1 ? 'qd-tr-alt' : ''}>
+                    {formData.mostrarFotos && (
+                      <td className="qd-td" style={{ padding: '6px 8px' }}>
+                        {prodCat?.foto ? (
+                          <img
+                            src={prodCat.foto}
+                            alt={line.nombre}
+                            style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, display: 'block' }}
+                          />
+                        ) : (
+                          <div style={{ width: 44, height: 44, borderRadius: 6, background: 'hsl(var(--bg))', border: '1px solid hsl(var(--border))', display: 'grid', placeItems: 'center', fontSize: 16 }}>📦</div>
+                        )}
+                      </td>
+                    )}
+                    <td className="qd-td qd-td-no">{String(i + 1).padStart(2, '0')}</td>
+                    <td className="qd-td qd-td-desc">{line.nombre || '—'}</td>
+                    <td className="qd-td qd-td-price">{fmt(line.precio)}</td>
+                    <td className="qd-td qd-td-qty">{line.cantidad}</td>
+                    <td className="qd-td qd-td-total">{fmt(Number(line.cantidad) * Number(line.precio))}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -918,6 +1021,45 @@ export const CotizacionesPage = () => {
                       </div>
                     </div>
 
+                    {/* Método de pago */}
+                    <div style={{ marginTop: 14, marginBottom: 14 }}>
+                      <label className="form-label" style={{ fontWeight: 700 }}>💳 Método de pago</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        {METODOS_PAGO_COT.map(m => {
+                          const isSelected = form.metodoPago === m.value;
+                          return (
+                            <button key={m.value} type="button"
+                              onClick={() => set('metodoPago', m.value)}
+                              style={{
+                                padding: '10px 12px', borderRadius: 10, border: '1.5px solid',
+                                borderColor: isSelected ? m.color : 'hsl(var(--border))',
+                                background: isSelected ? m.bg : 'hsl(var(--card))',
+                                color: isSelected ? m.color : 'hsl(var(--foreground))',
+                                cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                                display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.15s',
+                              }}
+                            >
+                              <span style={{ fontSize: 18 }}>{m.icon}</span>{m.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Desglose para mixto */}
+                    {form.metodoPago === 'mixto' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                        <div>
+                          <label className="form-label" style={{ fontSize: 11 }}>💵 Efectivo</label>
+                          <input className="form-input" style={{ padding: '6px 10px', fontSize: 12 }} type="number" min="0" step="0.01" placeholder="0.00" value={form.montoEfectivo || ''} onChange={e => set('montoEfectivo', e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="form-label" style={{ fontSize: 11 }}>💳 Tarjeta</label>
+                          <input className="form-input" style={{ padding: '6px 10px', fontSize: 12 }} type="number" min="0" step="0.01" placeholder="0.00" value={form.montoTarjeta || ''} onChange={e => set('montoTarjeta', e.target.value)} />
+                        </div>
+                      </div>
+                    )}
+
                     {/* Resumen visual del anticipo */}
                     {anticipoMonto > 0 && (
                       <div style={{
@@ -980,6 +1122,45 @@ export const CotizacionesPage = () => {
 
                 <div className="divider" />
 
+                {/* Sección: Opciones del documento */}
+                <div className="cot-section-label">🖼️ Opciones del documento</div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '14px 16px', borderRadius: 10, marginBottom: 14,
+                  background: form.mostrarFotos ? 'hsl(var(--primary) / 0.06)' : 'hsl(var(--bg))',
+                  border: `1.5px solid ${form.mostrarFotos ? 'hsl(var(--primary) / 0.3)' : 'hsl(var(--border))'}`,
+                  transition: 'all 0.25s ease', cursor: 'pointer',
+                }} onClick={() => set('mostrarFotos', !form.mostrarFotos)}>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); set('mostrarFotos', !form.mostrarFotos); }}
+                    style={{
+                      width: 44, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer',
+                      background: form.mostrarFotos ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                      position: 'relative', display: 'inline-block', transition: 'background 0.25s',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span style={{
+                      position: 'absolute', top: 3,
+                      left: form.mostrarFotos ? 22 : 3,
+                      width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                      transition: 'left 0.25s', display: 'block',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+                    }} />
+                  </button>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: form.mostrarFotos ? 'hsl(var(--primary))' : 'hsl(var(--foreground))' }}>
+                      {form.mostrarFotos ? '📷 Fotos activadas' : 'Mostrar fotos de productos'}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'hsl(var(--muted))', marginTop: 2 }}>
+                      {form.mostrarFotos
+                        ? 'Las fotos del catálogo aparecerán en el documento de cotización'
+                        : 'Activa para incluir las fotos de cada producto en el documento'}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Sección: Notas */}
                 <div className="cot-section-label">📝 Notas</div>
                 <div className="form-group">
@@ -1038,8 +1219,19 @@ export const CotizacionesPage = () => {
               <button className="btn btn-ghost btn-icon" onClick={() => setModal(null)}>✕</button>
             </div>
             <div className="modal-body" style={{ background: '#f1f5f9', padding: '24px', overflowX: 'auto' }}>
-              <QuoteDocument formData={form} quoteId={editId} />
+              <QuoteDocument formData={form} quoteId={editId} catalogo={catalogo} />
             </div>
+
+            {/* ── Comprobantes de pago ── */}
+            <div style={{ padding: '0 24px 20px' }}>
+              <ComprobantesSection
+                comprobantes={cotizaciones.find(c => c.id === editId)?.comprobantes || []}
+                totalPedido={total}
+                onAgregar={(comp) => store.addComprobanteCotizacion(editId, comp)}
+                onEliminar={(cId) => store.deleteComprobanteCotizacion(editId, cId)}
+              />
+            </div>
+
             <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button className="btn btn-ghost" onClick={() => setModal(null)}>Cerrar</button>
               {(form.estado === 'pendiente' || form.estado === 'aprobada') && (
@@ -1053,7 +1245,6 @@ export const CotizacionesPage = () => {
               )}
               <button className="btn btn-secondary" onClick={handleDownloadImage}>🖼️ Guardar Imagen</button>
               <button className="btn btn-secondary" onClick={handleDownloadPDF}>📥 Descargar PDF</button>
-              <button className="btn btn-primary" onClick={handlePrint}>🖨️ Imprimir</button>
             </div>
           </div>
         </div>
@@ -1062,6 +1253,174 @@ export const CotizacionesPage = () => {
       {confirm && (
         <ConfirmDialog title="¿Eliminar cotización?" message="Esta acción no se puede deshacer." onConfirm={confirmDelete} onCancel={() => setConfirm(null)} />
       )}
+
+      {/* ── Modal: Aceptar Pedido ── */}
+      {aceptarModal && (() => {
+        const { cot, cotTotal } = aceptarModal;
+        const montoCalc = aceptarForm.metodoPago === 'mixto'
+          ? (Number(aceptarForm.montoEfectivo || 0) + Number(aceptarForm.montoTarjeta || 0))
+          : Number(aceptarForm.montoPago || 0);
+        const saldoCalc = cotTotal - (aceptarForm.pagoHoy ? montoCalc : 0);
+        const metActivo = METODOS_PAGO_COT.find(m => m.value === aceptarForm.metodoPago);
+        return (
+          <div className="modal-overlay">
+            <div className="modal modal-sm" style={{ maxWidth: 480 }}>
+              <div className="modal-header" style={{ background: 'hsl(var(--success))', borderRadius: '12px 12px 0 0' }}>
+                <div>
+                  <h2 style={{ color: '#fff', margin: 0 }}>🎉 ¡Pedido Aceptado!</h2>
+                  <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2 }}>Cotización {cot.id} — {cot.cliente}</div>
+                </div>
+                <button className="btn btn-ghost btn-icon" style={{ color: '#fff', opacity: 0.8 }} onClick={() => setAceptarModal(null)}>✕</button>
+              </div>
+
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Resumen del total */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'hsl(var(--bg))', borderRadius: 10, border: '1px solid hsl(var(--border))' }}>
+                  <span style={{ fontSize: 14, color: 'hsl(var(--muted))' }}>Total de la cotización</span>
+                  <strong style={{ fontSize: 22, color: 'hsl(var(--primary))' }}>{fmt(cotTotal)}</strong>
+                </div>
+
+                {/* Fecha de entrega */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">📅 Fecha de entrega estimada</label>
+                  <input className="form-input" type="date" value={aceptarForm.fechaEntrega} onChange={e => setAF('fechaEntrega', e.target.value)} />
+                </div>
+
+                {/* Toggle: ¿Hubo pago hoy? */}
+                <div
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
+                    background: aceptarForm.pagoHoy ? '#f0fdf4' : 'hsl(var(--bg))',
+                    border: `1.5px solid ${aceptarForm.pagoHoy ? '#16a34a' : 'hsl(var(--border))'}`,
+                    transition: 'all 0.2s',
+                  }}
+                  onClick={() => setAF('pagoHoy', !aceptarForm.pagoHoy)}
+                >
+                  <button type="button"
+                    onClick={e => { e.stopPropagation(); setAF('pagoHoy', !aceptarForm.pagoHoy); }}
+                    style={{ width: 44, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer', flexShrink: 0, position: 'relative', transition: 'background 0.25s', background: aceptarForm.pagoHoy ? '#16a34a' : 'hsl(var(--border))' }}
+                  >
+                    <span style={{ position: 'absolute', top: 3, left: aceptarForm.pagoHoy ? 22 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.25s', display: 'block', boxShadow: '0 1px 3px rgba(0,0,0,0.18)' }} />
+                  </button>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: aceptarForm.pagoHoy ? '#16a34a' : 'hsl(var(--foreground))' }}>
+                      {aceptarForm.pagoHoy ? '💵 El cliente pagó hoy' : 'Sin pago por ahora'}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'hsl(var(--muted))', marginTop: 1 }}>
+                      {aceptarForm.pagoHoy ? 'Registra el monto y método de pago' : 'Puedes registrarlo después en Finanzas'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloque de pago (visible si pagoHoy = true) */}
+                {aceptarForm.pagoHoy && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeIn 0.2s ease' }}>
+
+                    {/* Método de pago */}
+                    <div>
+                      <label className="form-label">💳 ¿Cómo pagó?</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                        {METODOS_PAGO_COT.map(m => (
+                          <button key={m.value} type="button"
+                            onClick={() => setAF('metodoPago', m.value)}
+                            style={{
+                              padding: '9px 10px', borderRadius: 8, border: '1.5px solid',
+                              borderColor: aceptarForm.metodoPago === m.value ? m.color : 'hsl(var(--border))',
+                              background: aceptarForm.metodoPago === m.value ? m.bg : 'transparent',
+                              color: aceptarForm.metodoPago === m.value ? m.color : 'hsl(var(--muted))',
+                              cursor: 'pointer', fontWeight: 600, fontSize: 12,
+                              display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
+                            }}
+                          >
+                            <span style={{ fontSize: 16 }}>{m.icon}</span>{m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Monto */}
+                    {aceptarForm.metodoPago === 'mixto' ? (
+                      <div>
+                        <label className="form-label">Desglose del pago</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 8 }}>
+                          <div>
+                            <label className="form-label" style={{ fontSize: 11 }}>💵 Efectivo</label>
+                            <input className="form-input" type="number" min="0" step="0.01" placeholder="0.00" value={aceptarForm.montoEfectivo} onChange={e => setAF('montoEfectivo', e.target.value)} />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ fontSize: 11 }}>💳 Tarjeta</label>
+                            <input className="form-input" type="number" min="0" step="0.01" placeholder="0.00" value={aceptarForm.montoTarjeta} onChange={e => setAF('montoTarjeta', e.target.value)} />
+                          </div>
+                        </div>
+                        {montoCalc > 0 && (
+                          <div style={{ padding: '8px 12px', borderRadius: 8, background: '#f0fdf4', fontSize: 13, fontWeight: 700, color: '#16a34a', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Total pagado:</span><span>{fmt(montoCalc)}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="form-label">💰 ¿Cuánto pagó? {metActivo && <span style={{ color: metActivo.color }}>{metActivo.icon}</span>}</label>
+                        <input className="form-input" type="number" min="0" step="0.01" placeholder="0.00" value={aceptarForm.montoPago} onChange={e => setAF('montoPago', e.target.value)} />
+                        {montoCalc > 0 && montoCalc < cotTotal && (
+                          <div style={{ fontSize: 12, color: 'hsl(var(--muted))', marginTop: 4 }}>
+                            Saldo pendiente: <strong style={{ color: '#d97706' }}>{fmt(cotTotal - montoCalc)}</strong>
+                          </div>
+                        )}
+                        {montoCalc >= cotTotal && montoCalc > 0 && (
+                          <div style={{ fontSize: 12, color: '#16a34a', marginTop: 4, fontWeight: 600 }}>✅ Pago total — liquidado</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Toggle: registrar en finanzas */}
+                    <div
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+                        background: aceptarForm.registrarFinanzas ? '#dbeafe' : 'hsl(var(--bg))',
+                        border: `1px solid ${aceptarForm.registrarFinanzas ? '#2563eb' : 'hsl(var(--border))'}`,
+                      }}
+                      onClick={() => setAF('registrarFinanzas', !aceptarForm.registrarFinanzas)}
+                    >
+                      <input type="checkbox" checked={aceptarForm.registrarFinanzas} onChange={() => {}} style={{ accentColor: '#2563eb', width: 16, height: 16 }} />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: aceptarForm.registrarFinanzas ? '#2563eb' : 'hsl(var(--foreground))' }}>
+                          📊 Registrar pago en Finanzas automáticamente
+                        </div>
+                        <div style={{ fontSize: 11, color: 'hsl(var(--muted))' }}>Se creará un movimiento de ingreso</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Resumen final */}
+                {aceptarForm.pagoHoy && montoCalc > 0 && (
+                  <div style={{ background: 'hsl(var(--primary-light))', borderRadius: 10, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span style={{ color: 'hsl(var(--muted))' }}>Pago de hoy</span>
+                      <strong style={{ color: '#16a34a' }}>{fmt(montoCalc)}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span style={{ color: 'hsl(var(--muted))' }}>Saldo restante</span>
+                      <strong style={{ color: saldoCalc > 0 ? '#d97706' : '#16a34a' }}>
+                        {saldoCalc > 0 ? fmt(saldoCalc) : '✅ Liquidado'}
+                      </strong>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+                <button className="btn btn-ghost" onClick={() => setAceptarModal(null)}>Cancelar</button>
+                <button className="btn btn-primary" style={{ background: 'hsl(var(--success))', borderColor: 'hsl(var(--success))' }} onClick={confirmarAceptarPedido}>
+                  📦 Confirmar y crear pedido
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

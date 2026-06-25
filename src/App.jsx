@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar, getAvatarGradient } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { PedidosPage } from './pages/PedidosPage';
 import { CalendarioPage } from './pages/CalendarioPage';
@@ -64,9 +64,28 @@ const ProtectedRoute = ({ children }) => {
 // ── Layout principal de la app ─────────────────────────────────────────────────
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isCompactSidebar, setIsCompactSidebar] = useState(
+    () => typeof window !== 'undefined' && localStorage.getItem('sep_sidebar_mode') === 'compact' && window.innerWidth > 1024
+  );
   const location = useLocation();
   const { themeColor, config } = useStore();
   const { user, signOut } = useAuth();
+
+  // Listen for sidebar mode changes from ConfiguracionPage
+  useEffect(() => {
+    const handleStorage = () => {
+      setIsCompactSidebar(localStorage.getItem('sep_sidebar_mode') === 'compact' && window.innerWidth > 1024);
+    };
+    window.addEventListener('storage', handleStorage);
+    // Also listen via custom event for same-tab changes
+    window.addEventListener('sep_sidebar_changed', handleStorage);
+    window.addEventListener('resize', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('sep_sidebar_changed', handleStorage);
+      window.removeEventListener('resize', handleStorage);
+    };
+  }, []);
 
   // Función para cargar datos de la nube y actualizar el store
   const reloadFromCloud = useCallback(async () => {
@@ -203,10 +222,15 @@ const AppLayout = () => {
   const title = PAGE_TITLES[location.pathname] || 'Dashboard';
 
   return (
-    <div className="app-layout">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onSignOut={signOut} />
+    <div className={`app-layout ${isCompactSidebar ? 'has-compact-sidebar' : ''}`}>
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onSignOut={signOut}
+        isCompact={isCompactSidebar}
+      />
 
-      <div className="main-content">
+      <div className="main-content" style={{ marginLeft: isCompactSidebar ? 'var(--sidebar-compact-w)' : 'var(--sidebar-w)' }}>
         <header className="topbar">
           <button className="hamburger btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
             ☰
@@ -242,15 +266,37 @@ const AppLayout = () => {
             {store.getState().darkMode ? '☀️' : '🌙'}
           </button>
           {config.profilePhoto ? (
-            <img
-              src={config.profilePhoto}
-              alt="Perfil"
+            <div style={{
+              padding: '2px',
+              background: getAvatarGradient(themeColor),
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: `0 2px 8px hsl(var(--primary) / 0.35)`,
+              flexShrink: 0,
+              width: 36, height: 36,
+            }}>
+              <img
+                src={config.profilePhoto}
+                alt="Perfil"
+                style={{
+                  width: 30, height: 30, borderRadius: '50%', objectFit: 'cover',
+                  border: '1.5px solid hsl(var(--card))',
+                }}
+              />
+            </div>
+          ) : (
+            <div
               className="topbar-avatar"
               title={config.propietario}
-              style={{ objectFit: 'cover', padding: 0 }}
-            />
-          ) : (
-            <div className="topbar-avatar" title={config.propietario}>
+              style={{
+                background: getAvatarGradient(themeColor),
+                boxShadow: `0 2px 8px hsl(var(--primary) / 0.35)`,
+                fontWeight: 800,
+                color: 'white',
+              }}
+            >
               {(config.propietario || config.appName || 'U')[0].toUpperCase()}
             </div>
           )}

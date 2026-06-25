@@ -113,20 +113,6 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* Goal progress widget */}
-        <div className="welcome-goal-widget">
-          <div className="goal-header">
-            <span className="goal-title">🎯 Meta Mensual</span>
-            <span className="goal-value">{progressPercent}%</span>
-          </div>
-          <div className="goal-bar-wrapper" title={`Meta mensual de ingresos: ${fmt(goal)}`}>
-            <div className="goal-bar-fill" style={{ width: `${progressPercent}%` }}></div>
-          </div>
-          <div className="goal-footer">
-            <span>{fmt(ingresosEsteMes)} facturado</span>
-            <span>Meta: {fmt(goal)}</span>
-          </div>
-        </div>
       </div>
 
       {/* Stat cards */}

@@ -76,6 +76,15 @@ const seedCategorias = [
   { id: 'cat-7', nombre: 'Otro',        emoji: '📦', color: '#F3F4F6', text: '#374151' },
 ];
 
+// Canales de venta por defecto
+const seedCanalesVenta = [
+  { id: 'canal-1', nombre: 'WhatsApp', emoji: '💬', color: '#DCFCE7', text: '#15803d' },
+  { id: 'canal-2', nombre: 'Instagram', emoji: '📸', color: '#FCE7F3', text: '#be185d' },
+  { id: 'canal-3', nombre: 'Facebook', emoji: '👤', color: '#DBEAFE', text: '#1d4ed8' },
+  { id: 'canal-4', nombre: 'Local/Taller', emoji: '🏪', color: '#F3F4F6', text: '#374151' },
+  { id: 'canal-5', nombre: 'Otro', emoji: '🌐', color: '#FEF9C3', text: '#a16207' },
+];
+
 // ── main store hook ───────────────────────────────────────────────────────────
 let listeners = [];
 let state = {
@@ -86,6 +95,7 @@ let state = {
   clientes: load('sep_clientes', seedClientes),
   etiquetasPersonalizadas: load('sep_etiquetas', []),
   categoriasProducto: load('sep_categorias_producto', seedCategorias),
+  canalesVenta: load('sep_canales_venta', seedCanalesVenta),
   config: load('sep_config', {
     appName: 'PrintMeiker',
     profilePhoto: '',
@@ -153,9 +163,19 @@ export const store = {
 
   // ── pedidos ──
   addPedido: (p) => {
-    const pedidos = [...state.pedidos, { ...p, id: 'P' + Date.now().toString().slice(-4) }];
+    const defaultCanal = (state.canalesVenta && state.canalesVenta[0]?.id) || 'canal-1';
+    const newPedido = { canal: defaultCanal, ...p, id: 'P' + Date.now().toString().slice(-4) };
+    const pedidos = [...state.pedidos, newPedido];
     save('sep_pedidos', pedidos);
     setState({ pedidos });
+  },
+  addPedidoReturn: (p) => {
+    const defaultCanal = (state.canalesVenta && state.canalesVenta[0]?.id) || 'canal-1';
+    const newPedido = { canal: defaultCanal, ...p, id: 'P' + Date.now().toString().slice(-4) };
+    const pedidos = [...state.pedidos, newPedido];
+    save('sep_pedidos', pedidos);
+    setState({ pedidos });
+    return newPedido;
   },
   updatePedido: (id, p) => {
     const pedidos = state.pedidos.map(x => x.id === id ? { ...x, ...p } : x);
@@ -168,9 +188,38 @@ export const store = {
     setState({ pedidos });
   },
 
+  // ── comprobantes de pedido ──
+  addComprobantePedido: (pedidoId, comprobante) => {
+    const pedidos = state.pedidos.map(x =>
+      x.id === pedidoId
+        ? { ...x, comprobantes: [...(x.comprobantes || []), comprobante] }
+        : x
+    );
+    save('sep_pedidos', pedidos);
+    setState({ pedidos });
+  },
+  deleteComprobantePedido: (pedidoId, comprobanteId) => {
+    const pedidos = state.pedidos.map(x =>
+      x.id === pedidoId
+        ? { ...x, comprobantes: (x.comprobantes || []).filter(c => c.id !== comprobanteId) }
+        : x
+    );
+    save('sep_pedidos', pedidos);
+    setState({ pedidos });
+  },
+
   // ── cotizaciones ──
   addCotizacion: (c) => {
-    const cotizaciones = [...state.cotizaciones, { ...c, id: 'C' + Date.now().toString().slice(-4) }];
+    // Contador secuencial persistente — lee el más alto entre lo guardado y los IDs existentes
+    const stored   = parseInt(localStorage.getItem('sep_cot_counter') || '0', 10);
+    const maxExist = state.cotizaciones.reduce((max, x) => {
+      const n = parseInt((x.id || '').replace(/[^0-9]/g, ''), 10);
+      return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+    const next = Math.max(stored, maxExist) + 1;
+    localStorage.setItem('sep_cot_counter', next);
+    const id = 'C' + String(next).padStart(4, '0');
+    const cotizaciones = [...state.cotizaciones, { ...c, id }];
     save('sep_cotizaciones', cotizaciones);
     setState({ cotizaciones });
   },
@@ -185,9 +234,34 @@ export const store = {
     setState({ cotizaciones });
   },
 
+  // ── comprobantes de cotización ──
+  addComprobanteCotizacion: (cotId, comprobante) => {
+    const cotizaciones = state.cotizaciones.map(x =>
+      x.id === cotId
+        ? { ...x, comprobantes: [...(x.comprobantes || []), comprobante] }
+        : x
+    );
+    save('sep_cotizaciones', cotizaciones);
+    setState({ cotizaciones });
+  },
+  deleteComprobanteCotizacion: (cotId, comprobanteId) => {
+    const cotizaciones = state.cotizaciones.map(x =>
+      x.id === cotId
+        ? { ...x, comprobantes: (x.comprobantes || []).filter(c => c.id !== comprobanteId) }
+        : x
+    );
+    save('sep_cotizaciones', cotizaciones);
+    setState({ cotizaciones });
+  },
+
   // ── finanzas ──
   addFinanza: (f) => {
     const finanzas = [...state.finanzas, { ...f, id: 'F' + Date.now().toString().slice(-4) }];
+    save('sep_finanzas', finanzas);
+    setState({ finanzas });
+  },
+  updateFinanza: (id, f) => {
+    const finanzas = state.finanzas.map(x => x.id === id ? { ...x, ...f } : x);
     save('sep_finanzas', finanzas);
     setState({ finanzas });
   },
@@ -252,6 +326,27 @@ export const store = {
     setState({ categoriasProducto: seedCategorias });
   },
 
+  // ── canales de venta ──
+  addCanalVenta: (c) => {
+    const canalesVenta = [...state.canalesVenta, { ...c, id: 'canal-' + Date.now().toString().slice(-6) }];
+    save('sep_canales_venta', canalesVenta);
+    setState({ canalesVenta });
+  },
+  updateCanalVenta: (id, c) => {
+    const canalesVenta = state.canalesVenta.map(x => x.id === id ? { ...x, ...c } : x);
+    save('sep_canales_venta', canalesVenta);
+    setState({ canalesVenta });
+  },
+  deleteCanalVenta: (id) => {
+    const canalesVenta = state.canalesVenta.filter(x => x.id !== id);
+    save('sep_canales_venta', canalesVenta);
+    setState({ canalesVenta });
+  },
+  resetCanalesVenta: () => {
+    save('sep_canales_venta', seedCanalesVenta);
+    setState({ canalesVenta: seedCanalesVenta });
+  },
+
   // ── config ──
   updateConfig: (c) => {
     const config = { ...state.config, ...c };
@@ -302,6 +397,7 @@ export const store = {
       clientes:               load('sep_clientes', seedClientes),
       etiquetasPersonalizadas:load('sep_etiquetas', []),
       categoriasProducto:     load('sep_categorias_producto', seedCategorias),
+      canalesVenta:           load('sep_canales_venta', seedCanalesVenta),
       config:                 load('sep_config', state.config),
       negocioConfig:          load('sep_negocio_config', state.negocioConfig),
       alertasPedidos:         load('sep_alertas_pedidos', state.alertasPedidos),
@@ -393,6 +489,106 @@ export const THEMES = {
     '--sidebar-active': '28 50% 91%',
     name: 'Naranja',
   },
+  // ── Nuevos colores vibrantes ──────────────────────────────────────────────
+  '#7c3aed': {
+    '--primary': '263 70% 58%',
+    '--primary-light': '263 70% 94%',
+    '--primary-dark': '263 70% 40%',
+    '--primary-rgb': '124, 58, 237',
+    '--accent': '280 65% 60%',
+    '--bg': '263 60% 98%',
+    '--sidebar-bg': '263 40% 97%',
+    '--sidebar-active': '263 35% 92%',
+    name: 'Morado',
+  },
+  '#059669': {
+    '--primary': '161 80% 30%',
+    '--primary-light': '161 80% 92%',
+    '--primary-dark': '161 80% 20%',
+    '--primary-rgb': '5, 150, 105',
+    '--accent': '142 70% 40%',
+    '--bg': '161 50% 97%',
+    '--sidebar-bg': '161 35% 96%',
+    '--sidebar-active': '161 30% 91%',
+    name: 'Esmeralda',
+  },
+  '#dc2626': {
+    '--primary': '0 72% 51%',
+    '--primary-light': '0 72% 93%',
+    '--primary-dark': '0 72% 38%',
+    '--primary-rgb': '220, 38, 38',
+    '--accent': '14 90% 55%',
+    '--bg': '0 60% 98%',
+    '--sidebar-bg': '0 40% 97%',
+    '--sidebar-active': '0 35% 92%',
+    name: 'Rojo vivo',
+  },
+  '#db2777': {
+    '--primary': '330 75% 52%',
+    '--primary-light': '330 75% 93%',
+    '--primary-dark': '330 75% 38%',
+    '--primary-rgb': '219, 39, 119',
+    '--accent': '350 80% 60%',
+    '--bg': '330 60% 98%',
+    '--sidebar-bg': '330 40% 97%',
+    '--sidebar-active': '330 35% 92%',
+    name: 'Fucsia',
+  },
+  '#0ea5e9': {
+    '--primary': '199 89% 48%',
+    '--primary-light': '199 89% 92%',
+    '--primary-dark': '199 89% 32%',
+    '--primary-rgb': '14, 165, 233',
+    '--accent': '213 93% 68%',
+    '--bg': '199 65% 97%',
+    '--sidebar-bg': '199 45% 96%',
+    '--sidebar-active': '199 40% 91%',
+    name: 'Cielo',
+  },
+  '#ca8a04': {
+    '--primary': '38 92% 40%',
+    '--primary-light': '38 92% 92%',
+    '--primary-dark': '38 92% 26%',
+    '--primary-rgb': '202, 138, 4',
+    '--accent': '28 95% 52%',
+    '--bg': '38 70% 97%',
+    '--sidebar-bg': '38 50% 96%',
+    '--sidebar-active': '38 45% 91%',
+    name: 'Dorado',
+  },
+  '#65a30d': {
+    '--primary': '84 77% 35%',
+    '--primary-light': '84 77% 92%',
+    '--primary-dark': '84 77% 22%',
+    '--primary-rgb': '101, 163, 13',
+    '--accent': '140 70% 42%',
+    '--bg': '84 55% 97%',
+    '--sidebar-bg': '84 38% 96%',
+    '--sidebar-active': '84 35% 91%',
+    name: 'Lima',
+  },
+  '#0891b2': {
+    '--primary': '191 90% 36%',
+    '--primary-light': '191 90% 92%',
+    '--primary-dark': '191 90% 24%',
+    '--primary-rgb': '8, 145, 178',
+    '--accent': '199 80% 48%',
+    '--bg': '191 60% 97%',
+    '--sidebar-bg': '191 42% 96%',
+    '--sidebar-active': '191 38% 91%',
+    name: 'Cian',
+  },
+  '#4f46e5': {
+    '--primary': '243 75% 59%',
+    '--primary-light': '243 75% 93%',
+    '--primary-dark': '243 75% 42%',
+    '--primary-rgb': '79, 70, 229',
+    '--accent': '260 70% 62%',
+    '--bg': '243 55% 98%',
+    '--sidebar-bg': '243 38% 97%',
+    '--sidebar-active': '243 32% 92%',
+    name: 'Índigo',
+  },
 };
 
 export const applyTheme = (color, isDark = localStorage.getItem('sep_dark_mode') === 'true') => {
@@ -470,6 +666,9 @@ window.addEventListener('storage', (e) => {
         break;
       case 'sep_categorias_producto':
         setState({ categoriasProducto: JSON.parse(e.newValue) });
+        break;
+      case 'sep_canales_venta':
+        setState({ canalesVenta: JSON.parse(e.newValue) });
         break;
       case 'sep_productos':
         setState({ productos: JSON.parse(e.newValue) });

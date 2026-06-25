@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { StatusBadge } from '../components/StatusBadge';
+import { useNavigate } from 'react-router-dom';
+import { CanalBadge } from './PedidosPage';
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -41,7 +43,8 @@ const getPedidoColor = (pedido) => {
 };
 
 export const CalendarioPage = () => {
-  const { pedidos } = useStore();
+  const { pedidos, canalesVenta } = useStore();
+  const navigate = useNavigate();
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -267,6 +270,18 @@ export const CalendarioPage = () => {
                   <span className="text-muted">Fecha de entrega:</span>
                   <div className="font-bold">{selectedPedido.fechaEntrega || '—'}</div>
                 </div>
+                <div>
+                  <span className="text-muted">Origen del pedido:</span>
+                  <div style={{ marginTop: 4 }}><CanalBadge canalId={selectedPedido.canal} canalesVenta={canalesVenta} /></div>
+                </div>
+                {selectedPedido.metodoPago && (
+                  <div>
+                    <span className="text-muted">Método de pago:</span>
+                    <div style={{ textTransform: 'capitalize', fontWeight: 600, marginTop: 4 }}>
+                      {selectedPedido.metodoPago === 'mixto' ? 'Mixto (Efectivo + Tarjeta)' : selectedPedido.metodoPago}
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="divider" />
@@ -326,8 +341,18 @@ export const CalendarioPage = () => {
                 </>
               )}
             </div>
-            <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setSelectedPedido(null)}>Cerrar</button>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setSelectedPedido(null);
+                  navigate('/pedidos');
+                }}
+              >
+                ✏️ Ir a Pedidos
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => setSelectedPedido(null)}>Cerrar</button>
             </div>
           </div>
         </div>
