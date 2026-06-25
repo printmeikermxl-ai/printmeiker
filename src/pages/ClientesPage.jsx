@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore, store } from '../store/useStore';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { StatusBadge } from '../components/StatusBadge';
+import { FieldHelp } from '../components/FieldHelp';
 
 // ── Etiquetas predefinidas (no se pueden eliminar) ────────────────────────────
 export const ETIQUETAS_BASE = {
@@ -90,7 +91,7 @@ const Avatar = ({ nombre, size = 40 }) => {
 // ── Form vacío ────────────────────────────────────────────────────────────────
 const emptyForm = () => ({
   nombre: '', telefono: '', email: '',
-  direccion: '', ciudad: '', estado: 'Jalisco',
+  direccion: '', ciudad: '', estado: '',
   etiqueta: 'nuevo', notas: '',
 });
 
@@ -735,16 +736,25 @@ export const ClientesPage = () => {
                 <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'hsl(var(--muted))' }}>👤 DATOS PERSONALES</div>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label className="form-label">Nombre completo *</label>
+                    <label className="form-label">
+                      Nombre completo *
+                      <FieldHelp text="Nombre del cliente individual o razón social de la empresa." example="Juan Pérez" />
+                    </label>
                     <input className="form-input" required value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Nombre del cliente o empresa" />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Teléfono</label>
+                    <label className="form-label">
+                      Teléfono
+                      <FieldHelp text="Número de contacto del cliente." example="555-123-4567" />
+                    </label>
                     <input className="form-input" value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="555-0000" />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Email</label>
-                    <input className="form-input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="correo@email.com" />
+                    <label className="form-label">
+                      Email
+                      <FieldHelp text="Correo del cliente para cotizaciones y comprobantes." example="correo@ejemplo.com" />
+                    </label>
+                    <input className="form-input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="correo@ejemplo.com" />
                   </div>
                 </div>
 
@@ -753,17 +763,26 @@ export const ClientesPage = () => {
                 {/* Dirección */}
                 <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'hsl(var(--muted))' }}>📍 DIRECCIÓN</div>
                 <div className="form-group">
-                  <label className="form-label">Calle y número</label>
+                  <label className="form-label">
+                    Calle y número
+                    <FieldHelp text="Calle, número de local o casa y colonia." example="Av. Juárez 123, Col. Centro" />
+                  </label>
                   <input className="form-input" value={form.direccion} onChange={e => set('direccion', e.target.value)} placeholder="Calle, número, colonia" />
                 </div>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label className="form-label">Ciudad / Municipio</label>
-                    <input className="form-input" value={form.ciudad} onChange={e => set('ciudad', e.target.value)} placeholder="Guadalajara" />
+                    <label className="form-label">
+                      Ciudad / Municipio
+                      <FieldHelp text="Ciudad, municipio o localidad de residencia del cliente." />
+                    </label>
+                    <input className="form-input" value={form.ciudad} onChange={e => set('ciudad', e.target.value)} placeholder="" />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Estado</label>
-                    <input className="form-input" value={form.estado} onChange={e => set('estado', e.target.value)} placeholder="Jalisco" />
+                    <label className="form-label">
+                      Estado
+                      <FieldHelp text="Estado, provincia o región del cliente." />
+                    </label>
+                    <input className="form-input" value={form.estado} onChange={e => set('estado', e.target.value)} placeholder="" />
                   </div>
                 </div>
 

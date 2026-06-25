@@ -835,7 +835,7 @@ export const CotizacionesPage = () => {
                   <div className="form-group">
                     <label className="form-label">
                       Estado
-                      <FieldHelp text="Estado o provincia del cliente dentro de México." />
+                      <FieldHelp text="Estado, provincia o región del cliente." />
                     </label>
                     <input className="form-input" value={form.estado_cliente || ''} onChange={e => set('estado_cliente', e.target.value)} />
                   </div>
