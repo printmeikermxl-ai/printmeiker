@@ -5151,44 +5151,77 @@ body {
 
 /* ── Pantallas de Smartphones (Móviles) ──────────────────────────────────── */
 @media (max-width: 768px) {
-  /* 1. Reducir espaciado para aprovechar mejor las pantallas pequeñas */
+  /* Aumentar escala global de fuentes */
+  html {
+    font-size: 16.5px !important;
+  }
+
+  body, p, span, div, td {
+    font-size: 14.5px;
+  }
+
+  /* 1. Reducir espaciado lateral y aumentar el padding inferior para la barra de navegación */
   .page-area {
-    padding: 16px 14px calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 16px) !important;
+    padding: 12px 12px calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 16px) !important;
   }
 
   /* Ajustar topbar y añadir safe-area-inset-top para que no se oculte tras el notch */
   .topbar {
-    padding: env(safe-area-inset-top) 16px 0 !important;
-    height: calc(var(--topbar-h) + env(safe-area-inset-top)) !important;
+    padding: env(safe-area-inset-top) 12px 0 !important;
+    height: calc(58px + env(safe-area-inset-top)) !important;
     position: sticky;
     top: 0;
     z-index: 90;
   }
 
-  /* 2. Barra de Navegación Inferior (Estilo Nativo App) */
+  .topbar .hamburger {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px !important;
+    padding: 6px !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 8px;
+    background: transparent;
+  }
+
+  .topbar-title {
+    font-size: 17.5px !important;
+    font-weight: 700 !important;
+  }
+
+  .topbar-theme-toggle {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 17px !important;
+    margin-left: 6px !important;
+  }
+
+  /* 2. Barra de Navegación Inferior (Estilo Nativo App más legible) */
   .bottom-nav {
     display: flex;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
-    background: rgba(255, 255, 255, 0.94);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    height: calc(72px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-top: 1px solid hsl(var(--border));
     justify-content: space-around;
     align-items: center;
     z-index: 950;
     padding-bottom: env(safe-area-inset-bottom);
-    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.07);
   }
 
   /* Adaptación al Tema Oscuro para la bottom-nav */
   .dark-theme .bottom-nav {
-    background: rgba(20, 20, 26, 0.94);
+    background: rgba(20, 20, 26, 0.96);
     border-top-color: hsl(var(--border));
-    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
   }
 
   .bottom-nav-item {
@@ -5200,14 +5233,14 @@ body {
     height: 100%;
     text-align: center;
     color: hsl(var(--muted));
-    font-size: 10px;
-    font-weight: 500;
-    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    gap: 4px;
     transition: color 0.2s ease, transform 0.15s ease;
     cursor: pointer;
     background: none;
     border: none;
-    padding: 6px 0;
+    padding: 8px 0;
   }
 
   .bottom-nav-item:active {
@@ -5215,7 +5248,7 @@ body {
   }
 
   .bottom-nav-icon {
-    font-size: 20px;
+    font-size: 22px;
     display: block;
     line-height: 1;
   }
@@ -5224,7 +5257,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 70px;
+    max-width: 80px;
   }
 
   .bottom-nav-item.active {
@@ -5235,16 +5268,16 @@ body {
   /* Badge rojo brillante sobre el icono de pedidos */
   .bottom-nav-badge {
     position: absolute;
-    top: -5px;
-    right: -10px;
+    top: -4px;
+    right: -8px;
     background: hsl(var(--danger));
     color: white;
-    font-size: 9px;
+    font-size: 9.5px;
     font-weight: 700;
-    padding: 0 4px;
+    padding: 0 4.5px;
     border-radius: 99px;
-    min-width: 14px;
-    height: 14px;
+    min-width: 15px;
+    height: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -5252,7 +5285,7 @@ body {
     border: 1.5px solid hsl(var(--card));
   }
 
-  /* 3. Colapso de Grillas a 1 columna en móvil */
+  /* 3. Colapso de Grillas a 1 columna en móvil y espaciados de calculadora */
   .form-grid,
   .form-grid-3,
   .stat-grid {
@@ -5260,20 +5293,35 @@ body {
     gap: 12px !important;
   }
 
-  /* 4. Encabezados de Página Responsivos */
+  .calc-wrapper-full {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  /* 4. Encabezados de Página Responsivos y Más Grandes */
   .page-header {
     flex-direction: column;
     align-items: stretch !important;
-    gap: 12px !important;
-    margin-bottom: 18px !important;
+    gap: 10px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .page-title {
+    font-size: 23px !important;
+    font-weight: 800 !important;
+  }
+
+  .page-subtitle {
+    font-size: 14.5px !important;
   }
 
   .page-header .btn, 
   .page-header .btn-primary {
     width: 100% !important;
     justify-content: center;
-    padding: 11px 16px !important;
-    font-size: 14px !important;
+    padding: 12px 18px !important;
+    font-size: 15px !important;
+    border-radius: 10px !important;
   }
 
   .filters-bar {
@@ -5286,18 +5334,28 @@ body {
   .search-box {
     max-width: 100% !important;
     width: 100% !important;
+    padding: 10px 14px !important;
   }
 
+  /* Pestañas de secciones principales */
   .tabs {
     width: 100% !important;
     justify-content: stretch;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none !important;
   }
 
   .tab {
     flex: 1;
     text-align: center;
-    padding: 9px 6px !important;
-    font-size: 12px !important;
+    padding: 10px 14px !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
   }
 
   /* 5. Modales transformados a Bottom Sheets en móvil */
@@ -5327,13 +5385,10 @@ body {
 
   .modal-header {
     padding: 16px 20px !important;
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
   }
 
   .modal-body {
     padding: 18px 20px !important;
-    overflow-y: auto;
   }
 
   .modal-footer {
@@ -5351,45 +5406,80 @@ body {
   /* 6. Optimización de Tablas en Móviles */
   .table-wrapper {
     margin: 0 -4px;
-    border-radius: var(--radius-sm);
+    border-radius: 10px;
     box-shadow: none;
-  }
-
-  table {
-    font-size: 13px !important;
-  }
-
-  th, td {
-    padding: 10px 12px !important;
-  }
-
-  /* Ocultar columnas secundarias de tablas si hay muchas para evitar scroll horizontal excesivo */
-  /* El scroll horizontal es suave en iOS y Android */
-  .table-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  /* 7. Tamaño de elementos interactivos (Touch Targets 44px mínimo) */
-  .btn,
+  table {
+    font-size: 13.5px !important;
+  }
+
+  th, td {
+    padding: 12px 14px !important;
+  }
+
+  /* 7. Tamaño de elementos interactivos (Touch Targets más legibles y cómodos) */
+  .btn {
+    min-height: 46px;
+    font-size: 15px !important;
+    padding: 10px 16px !important;
+    border-radius: 10px !important;
+  }
+
+  .btn-sm {
+    min-height: 36px !important;
+    font-size: 13px !important;
+    padding: 6px 12px !important;
+  }
+
   .form-input,
   .form-select,
   .form-textarea {
-    min-height: 44px;
-    font-size: 14px !important;
+    min-height: 46px;
+    font-size: 16px !important; /* Importante para que no haga zoom en iOS */
+    padding: 10px 14px !important;
+    border-radius: 10px !important;
+  }
+
+  .form-label {
+    font-size: 14.5px !important;
+    font-weight: 600 !important;
+    margin-bottom: 6px !important;
   }
 
   .form-group {
-    margin-bottom: 12px !important;
+    margin-bottom: 14px !important;
   }
 
-  /* Tarjetas del Dashboard principal */
-  .stat-card {
+  .field-hint, .calc-hint {
+    font-size: 12.5px !important;
+  }
+
+  /* Tarjetas del Dashboard principal y comunes */
+  .card {
+    border-radius: 14px !important;
+    margin-bottom: 16px !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+
+  .card-body {
     padding: 16px !important;
   }
 
+  .stat-card {
+    padding: 16px !important;
+    border-radius: 14px !important;
+  }
+
   .stat-value {
-    font-size: 22px !important;
+    font-size: 24px !important;
+    font-weight: 800 !important;
+  }
+
+  .stat-label {
+    font-size: 13px !important;
   }
 
   /* Ocultar avatar de topbar en móviles para simplificar la barra superior */
@@ -5397,5 +5487,69 @@ body {
   .topbar .topbar-spacer ~ div {
     display: none !important;
   }
+
+  /* 8. Pestañas internas de la calculadora con scroll y texto visible */
+  .calc-tabs {
+    display: flex !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    padding: 6px 4px 10px !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    border-bottom: 1px solid hsl(var(--border)) !important;
+    margin-bottom: 14px !important;
+    scrollbar-width: none !important;
+  }
+  
+  .calc-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .calc-tab {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 10px 16px !important;
+    border-radius: 10px !important;
+    border: 1px solid hsl(var(--border)) !important;
+    background: hsl(var(--card)) !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: hsl(var(--muted)) !important;
+    transition: all 0.2s ease !important;
+    height: 42px !important;
+  }
+
+  .calc-tab.active {
+    background: hsl(var(--primary-light)) !important;
+    color: hsl(var(--primary)) !important;
+    border-color: hsl(var(--primary)) !important;
+  }
+
+  .calc-tab-emoji {
+    font-size: 17px !important;
+    line-height: 1 !important;
+  }
+
+  .calc-tab-label {
+    display: inline-block !important; /* Mostrar el texto del tab siempre */
+    font-size: 13.5px !important;
+  }
+
+  /* Ajustes en los ítems de navegación en el Sidebar cuando está abierto como Drawer */
+  .sidebar .nav-item {
+    font-size: 15.5px !important;
+    padding: 12px 14px !important;
+    gap: 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .sidebar .nav-section-label {
+    font-size: 11px !important;
+    padding: 10px 14px 6px !important;
+  }
 }
+
 
