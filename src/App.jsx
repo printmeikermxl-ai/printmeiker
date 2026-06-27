@@ -100,6 +100,8 @@ const AppLayout = () => {
       if (cloudData.config)        localStorage.setItem('sep_config',        JSON.stringify(cloudData.config));
       if (cloudData.negocioConfig) localStorage.setItem('sep_negocio_config', JSON.stringify(cloudData.negocioConfig));
       if (cloudData.themeColor)    localStorage.setItem('sep_theme',         JSON.stringify(cloudData.themeColor));
+      if (cloudData.notas)         localStorage.setItem('sep_notas',         JSON.stringify(cloudData.notas));
+      if (cloudData.categoriasNotas) localStorage.setItem('sep_categorias_notas', JSON.stringify(cloudData.categoriasNotas));
       // Marcar que estamos recargando desde la nube (no guardar de vuelta)
       window.__isReloadingFromCloud = true;
       store.reloadFromLocalStorage();
@@ -191,6 +193,8 @@ const AppLayout = () => {
           config:        s.config,
           negocioConfig: s.negocioConfig,
           themeColor:    s.themeColor,
+          notas:         s.notas,
+          categoriasNotas: s.categoriasNotas,
         });
       }, 2000);
     });

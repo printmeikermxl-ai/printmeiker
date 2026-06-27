@@ -128,6 +128,14 @@ let state = {
   }),
   themeColor: load('sep_theme', '#1f51d3'),
   darkMode: load('sep_dark_mode', false),
+  notas: load('sep_notas', []),
+  categoriasNotas: load('sep_categorias_notas', [
+    { id: 'personal',   label: 'Personal',   emoji: '👤', color: '#6366f1' },
+    { id: 'negocio',    label: 'Negocio',    emoji: '💼', color: '#0ea5e9' },
+    { id: 'ideas',      label: 'Ideas',      emoji: '💡', color: '#f59e0b' },
+    { id: 'tarea',      label: 'Tareas',     emoji: '✅', color: '#22c55e' },
+    { id: 'importante', label: 'Importante', emoji: '🔴', color: '#ef4444' },
+  ]),
 };
 
 const notify = () => listeners.forEach(fn => fn({ ...state }));
@@ -364,6 +372,40 @@ export const store = {
     setState({ alertasPedidos });
   },
 
+  // ── notas ──
+  addNota: (nota) => {
+    const notas = [nota, ...state.notas];
+    save('sep_notas', notas);
+    setState({ notas });
+  },
+  updateNota: (id, nota) => {
+    const notas = state.notas.map(x => x.id === id ? { ...x, ...nota } : x);
+    save('sep_notas', notas);
+    setState({ notas });
+  },
+  deleteNota: (id) => {
+    const notas = state.notas.filter(x => x.id !== id);
+    save('sep_notas', notas);
+    setState({ notas });
+  },
+
+  // ── categorias de notas ──
+  addCategoriaNota: (cat) => {
+    const categoriasNotas = [...state.categoriasNotas, cat];
+    save('sep_categorias_notas', categoriasNotas);
+    setState({ categoriasNotas });
+  },
+  updateCategoriaNota: (id, cat) => {
+    const categoriasNotas = state.categoriasNotas.map(x => x.id === id ? { ...x, ...cat } : x);
+    save('sep_categorias_notas', categoriasNotas);
+    setState({ categoriasNotas });
+  },
+  deleteCategoriaNota: (id) => {
+    const categoriasNotas = state.categoriasNotas.filter(x => x.id !== id);
+    save('sep_categorias_notas', categoriasNotas);
+    setState({ categoriasNotas });
+  },
+
   // ── theme ──
   setTheme: (color) => {
     save('sep_theme', color);
@@ -403,6 +445,8 @@ export const store = {
       alertasPedidos:         load('sep_alertas_pedidos', state.alertasPedidos),
       themeColor:             load('sep_theme', '#1f51d3'),
       darkMode:               isDark,
+      notas:                  load('sep_notas', []),
+      categoriasNotas:        load('sep_categorias_notas', state.categoriasNotas),
     };
     state = { ...state, ...newState };
     applyTheme(state.themeColor, isDark);
@@ -672,6 +716,12 @@ window.addEventListener('storage', (e) => {
         break;
       case 'sep_productos':
         setState({ productos: JSON.parse(e.newValue) });
+        break;
+      case 'sep_notas':
+        setState({ notas: JSON.parse(e.newValue) });
+        break;
+      case 'sep_categorias_notas':
+        setState({ categoriasNotas: JSON.parse(e.newValue) });
         break;
     }
   } catch (error) {

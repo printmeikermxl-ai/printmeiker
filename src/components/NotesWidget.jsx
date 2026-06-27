@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../store/authStore';
+import { useStore, store } from '../store/useStore';
 
 // ── Note color palette ─────────────────────────────────────────────────────
 const NOTE_COLORS = [
@@ -60,23 +61,8 @@ const EmptyIllustration = () => (
 // ── Main component ─────────────────────────────────────────────────────────
 export const NotesWidget = () => {
   const { user } = useAuth();
-  const userId = user?.id || 'guest';
-
-  const notesKey      = `sep_notes_${userId}`;
-  const categoriesKey = `sep_notes_cats_${userId}`;
-
-  // ── State: data ──────────────────────────────────────────────────────────
-  const [notes, setNotes] = useState(() => {
-    try { const r = localStorage.getItem(notesKey); return r ? JSON.parse(r) : []; }
-    catch { return []; }
-  });
-
-  const [categories, setCategories] = useState(() => {
-    try {
-      const r = localStorage.getItem(categoriesKey);
-      return r ? JSON.parse(r) : DEFAULT_CATEGORIES;
-    } catch { return DEFAULT_CATEGORIES; }
-  });
+  const storeState = useStore();
+  const { notas: notes, categoriasNotas: categories } = storeState;
 
   // ── State: UI ────────────────────────────────────────────────────────────
   const [activeCategory, setActiveCategory] = useState('todos');
@@ -101,28 +87,11 @@ export const NotesWidget = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiRef = useRef(null);
 
-  // ── Persist ──────────────────────────────────────────────────────────────
+  // Reset category on user change
   useEffect(() => {
-    try { localStorage.setItem(notesKey, JSON.stringify(notes)); }
-    catch {}
-  }, [notes, notesKey]);
-
-  useEffect(() => {
-    try { localStorage.setItem(categoriesKey, JSON.stringify(categories)); }
-    catch {}
-  }, [categories, categoriesKey]);
-
-  // Reload on user change
-  useEffect(() => {
-    try {
-      const r = localStorage.getItem(notesKey);
-      setNotes(r ? JSON.parse(r) : []);
-      const c = localStorage.getItem(categoriesKey);
-      setCategories(c ? JSON.parse(c) : DEFAULT_CATEGORIES);
-      setActiveCategory('todos');
-      setSearchQuery('');
-    } catch {}
-  }, [userId]);
+    setActiveCategory('todos');
+    setSearchQuery('');
+  }, [user?.id]);
 
   // Close emoji picker on outside click
   useEffect(() => {
@@ -160,12 +129,16 @@ export const NotesWidget = () => {
     e.preventDefault();
     const now = new Date().toISOString();
     if (currentNote) {
-      setNotes(prev => prev.map(n => n.id === currentNote.id
-        ? { ...n, title: formTitle.trim(), content: formContent.trim(), category: formCategory, color: formColor, pinned: formPinned, updatedAt: now }
-        : n
-      ));
+      store.updateNota(currentNote.id, {
+        title: formTitle.trim(),
+        content: formContent.trim(),
+        category: formCategory,
+        color: formColor,
+        pinned: formPinned,
+        updatedAt: now
+      });
     } else {
-      setNotes(prev => [{
+      store.addNota({
         id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
         title: formTitle.trim(),
         content: formContent.trim(),
@@ -174,23 +147,24 @@ export const NotesWidget = () => {
         pinned: formPinned,
         createdAt: now,
         updatedAt: now,
-      }, ...prev]);
+      });
     }
     setNoteModal(false);
   };
 
   const handleDeleteNote = (id) => {
     if (window.confirm('¿Seguro que deseas eliminar esta nota?')) {
-      setNotes(prev => prev.filter(n => n.id !== id));
+      store.deleteNota(id);
       if (noteModal && currentNote?.id === id) setNoteModal(false);
     }
   };
 
   const handleTogglePin = (id, e) => {
     e.stopPropagation();
-    setNotes(prev => prev.map(n =>
-      n.id === id ? { ...n, pinned: !n.pinned, updatedAt: new Date().toISOString() } : n
-    ));
+    const targetNote = notes.find(n => n.id === id);
+    if (targetNote) {
+      store.updateNota(id, { pinned: !targetNote.pinned, updatedAt: new Date().toISOString() });
+    }
   };
 
   // ── Category actions ─────────────────────────────────────────────────────
@@ -214,10 +188,11 @@ export const NotesWidget = () => {
     e.preventDefault();
     if (!catLabel.trim()) return;
     if (editingCat) {
-      setCategories(prev => prev.map(c => c.id === editingCat.id
-        ? { ...c, label: catLabel.trim(), emoji: catEmoji, color: catColor }
-        : c
-      ));
+      store.updateCategoriaNota(editingCat.id, {
+        label: catLabel.trim(),
+        emoji: catEmoji,
+        color: catColor
+      });
     } else {
       const newCat = {
         id: 'cat_' + Date.now(),
@@ -225,14 +200,14 @@ export const NotesWidget = () => {
         emoji: catEmoji,
         color: catColor,
       };
-      setCategories(prev => [...prev, newCat]);
+      store.addCategoriaNota(newCat);
     }
     setCatModal(false);
   };
 
   const handleDeleteCategory = (catId) => {
     if (window.confirm('¿Eliminar esta categoría? Las notas de esta categoría quedarán sin categoría.')) {
-      setCategories(prev => prev.filter(c => c.id !== catId));
+      store.deleteCategoriaNota(catId);
       if (activeCategory === catId) setActiveCategory('todos');
     }
   };
