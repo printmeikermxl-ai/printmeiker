@@ -5795,7 +5795,7 @@ body {
 
   /* F. Configuración */
   .configuracion-form-label {
-    text-align: center !important;
+    text-align: left !important;
     display: block !important;
     width: 100% !important;
   }
@@ -5810,6 +5810,37 @@ body {
   .configuracion-danger-zone button {
     width: 100% !important;
     max-width: 320px !important;
+  }
+
+  /* Ocultar cabeceras duplicadas/redundantes en móvil */
+  .page-header .page-title,
+  .page-header .page-subtitle {
+    display: none !important;
+  }
+
+  /* Asegurar que las tablas tengan ancho mínimo en móvil para scroll lateral legible */
+  .table-wrapper table {
+    min-width: 650px !important;
+    width: 100% !important;
+  }
+
+  /* Perfil de configuración centrado en móviles */
+  .configuracion-profile-block {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  .configuracion-profile-block .form-grid {
+    width: 100% !important;
+    margin-top: 14px !important;
+  }
+
+  /* Evitar solapamientos en las cabeceras de tarjetas */
+  .card-header {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
   }
 }
 

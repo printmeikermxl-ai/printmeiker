@@ -215,7 +215,7 @@ export const ConfiguracionPage = () => {
               <form onSubmit={handleSaveConfig}>
                 <div className="card-body">
                   {/* Avatar + nombre */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, marginBottom: 20 }}>
+                  <div className="configuracion-profile-block" style={{ display: 'flex', alignItems: 'flex-start', gap: 20, marginBottom: 20 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                       <div style={{ position: 'relative' }}>
                         {formConfig.profilePhoto ? (

@@ -372,9 +372,8 @@ export const PedidosPage = () => {
         </button>
       </div>
 
-      {/* Filters */}
       <div className="filters-bar" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div className="search-box">
             <span>🔍</span>
             <input
@@ -383,47 +382,51 @@ export const PedidosPage = () => {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--muted))' }}>Estado:</span>
-            <div className="tabs">
-              {['todos', ...ESTADOS].map(e => (
-                <button
-                  key={e}
-                  className={`tab ${filtroEstado === e ? 'active' : ''}`}
-                  onClick={() => setFiltroEstado(e)}
-                >
-                  {e === 'todos' ? 'Todos' : e.replace('_', ' ')}
-                </button>
-              ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--muted))', flexShrink: 0 }}>Estado:</span>
+            <div className="quote-tabs-container" style={{ flex: 1, minWidth: 0, margin: 0 }}>
+              <div className="quote-tabs">
+                {['todos', ...ESTADOS].map(e => (
+                  <button
+                    key={e}
+                    className={`tab ${filtroEstado === e ? 'active' : ''}`}
+                    onClick={() => setFiltroEstado(e)}
+                  >
+                    {e === 'todos' ? 'Todos' : e.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, borderTop: '1px solid hsl(var(--border) / 0.5)', paddingTop: 10 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 10, borderTop: '1px solid hsl(var(--border) / 0.5)', paddingTop: 10, width: '100%' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             🌐 Origen:
           </span>
-          <div className="tabs" style={{ flexWrap: 'wrap' }}>
-            <button
-              className={`tab ${filtroCanal === 'todos' ? 'active' : ''}`}
-              onClick={() => setFiltroCanal('todos')}
-            >
-              Todos
-            </button>
-            {(canalesVenta || []).map(c => (
+          <div className="quote-tabs-container" style={{ flex: 1, minWidth: 0, margin: 0 }}>
+            <div className="quote-tabs">
               <button
-                key={c.id}
-                className={`tab ${filtroCanal === c.id ? 'active' : ''}`}
-                onClick={() => setFiltroCanal(c.id)}
+                className={`tab ${filtroCanal === 'todos' ? 'active' : ''}`}
+                onClick={() => setFiltroCanal('todos')}
               >
-                {c.emoji || '🌐'} {c.nombre}
+                Todos
               </button>
-            ))}
+              {(canalesVenta || []).map(c => (
+                <button
+                  key={c.id}
+                  className={`tab ${filtroCanal === c.id ? 'active' : ''}`}
+                  onClick={() => setFiltroCanal(c.id)}
+                >
+                  {c.emoji || '🌐'} {c.nombre}
+                </button>
+              ))}
+            </div>
           </div>
           <button
             type="button"
             className="btn btn-secondary btn-icon btn-sm"
-            style={{ borderRadius: '50%', width: 30, height: 30, padding: 0, display: 'grid', placeItems: 'center' }}
+            style={{ borderRadius: '50%', width: 30, height: 30, padding: 0, display: 'grid', placeItems: 'center', flexShrink: 0 }}
             onClick={() => setModal('canales')}
             title="Gestionar canales de venta"
           >

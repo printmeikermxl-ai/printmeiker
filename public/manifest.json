@@ -1,0 +1,21 @@
+{
+  "short_name": "PrintMeiker",
+  "name": "PrintMeiker CRM",
+  "icons": [
+    {
+      "src": "/logo-icon.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/logo-icon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1f51d3",
+  "theme_color": "#1f51d3",
+  "display": "standalone",
+  "orientation": "portrait"
+}
