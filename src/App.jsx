@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Sidebar, getAvatarGradient } from './components/Sidebar';
+import { BottomNav } from './components/BottomNav';
 import { Dashboard } from './pages/Dashboard';
 import { PedidosPage } from './pages/PedidosPage';
 import { CalendarioPage } from './pages/CalendarioPage';
@@ -230,7 +231,7 @@ const AppLayout = () => {
         isCompact={isCompactSidebar}
       />
 
-      <div className="main-content" style={{ marginLeft: isCompactSidebar ? 'var(--sidebar-compact-w)' : 'var(--sidebar-w)' }}>
+      <div className="main-content">
         <header className="topbar">
           <button className="hamburger btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
             ☰
@@ -316,6 +317,8 @@ const AppLayout = () => {
           </Routes>
         </main>
       </div>
+
+      <BottomNav onMenuClick={() => setSidebarOpen(true)} />
     </div>
   );
 };

@@ -51,7 +51,7 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
       <aside className={`sidebar ${open ? 'open' : ''} ${isCompact ? 'sidebar-compact' : ''}`}>
 
         {/* ── Logo ── */}
-        <div className="sidebar-logo" style={{ padding: isCompact ? '14px 0' : '16px 16px 16px', justifyContent: isCompact ? 'center' : 'flex-start' }}>
+        <div className="sidebar-logo" style={{ padding: isCompact ? '14px 0' : '16px 16px 16px', justifyContent: isCompact ? 'center' : 'flex-start', position: 'relative' }}>
           {isCompact ? (
             // Modo compacto: logo original en miniatura (negro en fondo claro, blanco en fondo oscuro)
             <div style={{
@@ -78,17 +78,22 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
               />
             </div>
           ) : (
-            <img
-              src="/logo.png"
-              alt="PrintMeiker"
-              style={{
-                width: '140px',
-                height: 'auto',
-                display: 'block',
-                filter: darkMode ? 'none' : 'invert(1)',
-                mixBlendMode: darkMode ? 'screen' : 'multiply',
-              }}
-            />
+            <>
+              <img
+                src="/logo.png"
+                alt="PrintMeiker"
+                style={{
+                  width: '140px',
+                  height: 'auto',
+                  display: 'block',
+                  filter: darkMode ? 'none' : 'invert(1)',
+                  mixBlendMode: darkMode ? 'screen' : 'multiply',
+                }}
+              />
+              <button className="sidebar-close-btn" onClick={onClose} aria-label="Cerrar menú">
+                ✕
+              </button>
+            </>
           )}
         </div>
 
