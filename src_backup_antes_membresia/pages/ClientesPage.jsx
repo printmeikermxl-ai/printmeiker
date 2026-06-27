@@ -378,7 +378,7 @@ export const ClientesPage = () => {
           <h2 className="page-title">👥 Clientes</h2>
           <p className="page-subtitle">{clientes.length} clientes registrados</p>
         </div>
-        <div className="clientes-header-actions" style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
           <button className={`btn ${view === 'grid' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('grid')}>⊞ Tarjetas</button>
           <button className={`btn ${view === 'table' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('table')}>☰ Lista</button>
           <button className="btn btn-secondary" onClick={() => setModal('etiquetas')} title="Gestionar categorías">🏷️ Categorías</button>
@@ -438,7 +438,7 @@ export const ClientesPage = () => {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Orden alfabético */}
           <button
             className={`btn btn-sm ${ordenAlfabetico ? 'btn-primary' : 'btn-ghost'}`}
@@ -448,20 +448,18 @@ export const ClientesPage = () => {
           >
             A→Z
           </button>
-          <div className="clientes-tabs-container">
-            <div className="clientes-tabs">
-              <button className={`tab ${filtroEtiqueta === 'todos' ? 'active' : ''}`} onClick={() => setFiltroEtiqueta('todos')}>Todos</button>
-              {Object.entries(ETIQUETAS_BASE).map(([k, v]) => (
-                <button key={k} className={`tab ${filtroEtiqueta === k ? 'active' : ''}`} onClick={() => setFiltroEtiqueta(k)}>
-                  {v.label}
-                </button>
-              ))}
-              {etiquetasPersonalizadas.map(et => (
-                <button key={et.id} className={`tab ${filtroEtiqueta === et.id ? 'active' : ''}`} onClick={() => setFiltroEtiqueta(et.id)}>
-                  {et.emoji || '🏷️'} {et.nombre}
-                </button>
-              ))}
-            </div>
+          <div className="tabs">
+            <button className={`tab ${filtroEtiqueta === 'todos' ? 'active' : ''}`} onClick={() => setFiltroEtiqueta('todos')}>Todos</button>
+            {Object.entries(ETIQUETAS_BASE).map(([k, v]) => (
+              <button key={k} className={`tab ${filtroEtiqueta === k ? 'active' : ''}`} onClick={() => setFiltroEtiqueta(k)}>
+                {v.label}
+              </button>
+            ))}
+            {etiquetasPersonalizadas.map(et => (
+              <button key={et.id} className={`tab ${filtroEtiqueta === et.id ? 'active' : ''}`} onClick={() => setFiltroEtiqueta(et.id)}>
+                {et.emoji || '🏷️'} {et.nombre}
+              </button>
+            ))}
           </div>
         </div>
       </div>

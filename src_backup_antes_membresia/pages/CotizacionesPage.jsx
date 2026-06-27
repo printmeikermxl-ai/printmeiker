@@ -592,14 +592,12 @@ export const CotizacionesPage = () => {
           <span>🔍</span>
           <input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <div className="quote-tabs-container">
-          <div className="quote-tabs">
-            {['todos', ...ESTADOS].map(e => (
-              <button key={e} className={`tab ${filtroEstado === e ? 'active' : ''}`} onClick={() => setFiltroEstado(e)}>
-                {e === 'todos' ? 'Todos' : e}
-              </button>
-            ))}
-          </div>
+        <div className="tabs">
+          {['todos', ...ESTADOS].map(e => (
+            <button key={e} className={`tab ${filtroEstado === e ? 'active' : ''}`} onClick={() => setFiltroEstado(e)}>
+              {e === 'todos' ? 'Todos' : e}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -1472,7 +1470,7 @@ export const CotizacionesPage = () => {
               </div>
 
               <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
-                <button type="button" className="btn btn-ghost btn-modal-cancel" onClick={() => setAceptarModal(null)}>Cancelar</button>
+                <button className="btn btn-ghost" onClick={() => setAceptarModal(null)}>Cancelar</button>
                 <button className="btn btn-primary" style={{ background: 'hsl(var(--success))', borderColor: 'hsl(var(--success))' }} onClick={confirmarAceptarPedido}>
                   📦 Confirmar y crear pedido
                 </button>

@@ -184,11 +184,6 @@ export const CalendarioPage = () => {
         </div>
       </div>
 
-      {/* Mensaje de ayuda en móviles */}
-      <div className="calendar-scroll-hint" style={{ display: 'none' }}>
-        ↔️ Desliza para ver la semana completa
-      </div>
-
       {/* Calendar Grid Container */}
       <div className="calendar-card card">
         <div className="calendar-grid-header">

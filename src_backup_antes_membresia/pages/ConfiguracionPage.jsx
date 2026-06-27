@@ -258,13 +258,13 @@ export const ConfiguracionPage = () => {
 
                     <div className="form-grid" style={{ flex: 1, marginTop: 0 }}>
                       <div className="form-group">
-                        <label className="form-label configuracion-form-label">Nombre del sistema / App</label>
+                        <label className="form-label">Nombre del sistema / App</label>
                         <input className={inputClass(editConfig)} disabled={!editConfig}
                           value={formConfig.appName || 'PrintMeiker'}
                           onChange={e => setFormConfig({ ...formConfig, appName: e.target.value })} />
                       </div>
                       <div className="form-group">
-                        <label className="form-label configuracion-form-label">Nombre de tu negocio</label>
+                        <label className="form-label">Nombre de tu negocio</label>
                         <input className={inputClass(editConfig)} disabled={!editConfig}
                           value={formConfig.negocio}
                           onChange={e => setFormConfig({ ...formConfig, negocio: e.target.value })} />
@@ -720,12 +720,12 @@ export const ConfiguracionPage = () => {
                 }}>
                   ⚡ Esta acción eliminará <strong>todos los datos</strong> de la aplicación incluyendo pedidos, cotizaciones, finanzas y catálogo. <strong>No se puede deshacer.</strong>
                 </div>
-                <div className="configuracion-danger-zone" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <button className="btn btn-danger" onClick={handleReset}>
                     {confirmReset ? '⚠️ ¿Confirmas? Presiona de nuevo' : '🗑️ Borrar todos los datos'}
                   </button>
                   {confirmReset && (
-                    <button type="button" className="btn btn-ghost btn-modal-cancel" onClick={() => setConfirmReset(false)}>Cancelar</button>
+                    <button className="btn btn-ghost" onClick={() => setConfirmReset(false)}>Cancelar</button>
                   )}
                 </div>
               </div>

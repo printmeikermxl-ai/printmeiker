@@ -404,7 +404,7 @@ export const FinanzasPage = () => {
           <h2 className="page-title">💰 Finanzas</h2>
           <p className="page-subtitle">Control de ingresos y gastos</p>
         </div>
-        <div className="finanzas-header-actions" style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-secondary" onClick={() => setReporteModal(true)}>📥 Reporte PDF</button>
           <button className="btn btn-primary" onClick={() => { setForm(emptyForm()); setModal(true); }}>+ Registrar movimiento</button>
         </div>
@@ -482,14 +482,12 @@ export const FinanzasPage = () => {
           <span>🔍</span>
           <input placeholder="Buscar movimiento..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <div className="quote-tabs-container">
-          <div className="quote-tabs">
-            {['todos', 'ingreso', 'gasto'].map(t => (
-              <button key={t} className={`tab ${filtroTipo === t ? 'active' : ''}`} onClick={() => setFiltroTipo(t)}>
-                {t === 'todos' ? 'Todos' : t === 'ingreso' ? '📈 Ingresos' : '📉 Gastos'}
-              </button>
-            ))}
-          </div>
+        <div className="tabs">
+          {['todos', 'ingreso', 'gasto'].map(t => (
+            <button key={t} className={`tab ${filtroTipo === t ? 'active' : ''}`} onClick={() => setFiltroTipo(t)}>
+              {t === 'todos' ? 'Todos' : t === 'ingreso' ? '📈 Ingresos' : '📉 Gastos'}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -686,7 +684,7 @@ export const FinanzasPage = () => {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-ghost btn-modal-cancel" onClick={() => setModal(false)}>Cancelar</button>
+                <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>Cancelar</button>
                 <button
                   type="submit"
                   className="btn btn-primary"
@@ -728,7 +726,7 @@ export const FinanzasPage = () => {
               </div>
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-ghost btn-modal-cancel" onClick={() => setReporteModal(false)}>Cerrar</button>
+              <button className="btn btn-ghost" onClick={() => setReporteModal(false)}>Cerrar</button>
               <button className="btn btn-secondary" disabled={generando} onClick={() => handleDescargarReporte('imagen')}>
                 {generando ? '⏳ Generando…' : '🖼️ Guardar imagen'}
               </button>
