@@ -40,6 +40,9 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
   const storeState = useStore();
   const { pedidos, config, darkMode, themeColor } = storeState;
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 1024;
+  const showCompact = isCompact && !isMobile;
+
   const pendientes = pedidos.filter(p => p.estado === 'pendiente').length;
   const sections   = [...new Set(navItems.map(n => n.section))];
   const avatarGrad = getAvatarGradient(themeColor);
@@ -48,11 +51,11 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
   return (
     <>
       {open && <div className="sidebar-overlay" onClick={onClose} />}
-      <aside className={`sidebar ${open ? 'open' : ''} ${isCompact ? 'sidebar-compact' : ''}`}>
+      <aside className={`sidebar ${open ? 'open' : ''} ${showCompact ? 'sidebar-compact' : ''}`}>
 
         {/* ── Logo ── */}
-        <div className="sidebar-logo" style={{ padding: isCompact ? '14px 0' : '16px 16px 16px', justifyContent: isCompact ? 'center' : 'flex-start', position: 'relative' }}>
-          {isCompact ? (
+        <div className="sidebar-logo" style={{ padding: showCompact ? '14px 0' : '16px 16px 16px', justifyContent: showCompact ? 'center' : 'flex-start', position: 'relative' }}>
+          {showCompact ? (
             // Modo compacto: logo original en miniatura (negro en fondo claro, blanco en fondo oscuro)
             <div style={{
               width: 38,
@@ -98,10 +101,10 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
         </div>
 
         {/* ── Nav ── */}
-        <nav className="sidebar-nav" style={{ padding: isCompact ? '10px 6px' : '12px 10px' }}>
+        <nav className="sidebar-nav" style={{ padding: showCompact ? '10px 6px' : '12px 10px' }}>
           {sections.map(section => (
             <div key={section}>
-              {!isCompact && <div className="nav-section-label">{section}</div>}
+              {!showCompact && <div className="nav-section-label">{section}</div>}
               {navItems.filter(n => n.section === section).map(item => (
                 <NavLink
                   key={item.path}
@@ -109,20 +112,20 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
                   end={item.path === '/'}
                   onClick={onClose}
                   className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                  style={isCompact ? {
+                  style={showCompact ? {
                     justifyContent: 'center',
                     padding: '10px',
                     borderRadius: 10,
                     position: 'relative',
                   } : {}}
-                  title={isCompact ? item.label : undefined}
+                  title={showCompact ? item.label : undefined}
                 >
-                  <span className="nav-icon" style={{ fontSize: isCompact ? 20 : 18 }}>
+                  <span className="nav-icon" style={{ fontSize: showCompact ? 20 : 18 }}>
                     {item.icon}
                   </span>
-                  {!isCompact && item.label}
+                  {!showCompact && item.label}
                   {item.path === '/pedidos' && pendientes > 0 && (
-                    <span className="nav-badge" style={isCompact ? {
+                    <span className="nav-badge" style={showCompact ? {
                       position: 'absolute', top: 4, right: 4,
                       minWidth: 14, height: 14, fontSize: 9, padding: '0 3px',
                     } : {}}>
@@ -131,7 +134,7 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
                   )}
                 </NavLink>
               ))}
-              {!isCompact && section !== sections[sections.length - 1] && (
+              {!showCompact && section !== sections[sections.length - 1] && (
                 <div style={{ height: 1, background: 'hsl(var(--border))', margin: '6px 8px' }} />
               )}
             </div>
@@ -139,13 +142,13 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
         </nav>
 
         {/* ── Footer ── */}
-        <div className="sidebar-footer" style={{ padding: isCompact ? '10px 6px' : '14px 10px' }}>
+        <div className="sidebar-footer" style={{ padding: showCompact ? '10px 6px' : '14px 10px' }}>
           <div className="nav-item" style={{
             cursor: 'default', opacity: 0.9,
-            justifyContent: isCompact ? 'center' : 'flex-start',
-            padding: isCompact ? '8px' : undefined,
+            justifyContent: showCompact ? 'center' : 'flex-start',
+            padding: showCompact ? '8px' : undefined,
           }}
-          title={isCompact ? (config.propietario || config.negocio || 'Mi Negocio') : undefined}
+          title={showCompact ? (config.propietario || config.negocio || 'Mi Negocio') : undefined}
           >
             {/* Avatar llamativo con gradiente */}
             {config.profilePhoto ? (
@@ -182,7 +185,7 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
                 {avatarLetter}
               </div>
             )}
-            {!isCompact && (
+            {!showCompact && (
               <div style={{ marginLeft: 10, flex: 1, overflow: 'hidden' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {config.propietario || config.negocio || 'Mi Negocio'}
@@ -196,19 +199,19 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
             id="sidebar-signout-btn"
             onClick={onSignOut}
             className="nav-item"
-            title={isCompact ? 'Cerrar sesión' : undefined}
+            title={showCompact ? 'Cerrar sesión' : undefined}
             style={{
               width: '100%', cursor: 'pointer', color: 'hsl(var(--danger))',
               marginTop: 4, border: 'none', background: 'none',
               textAlign: 'left', fontFamily: 'inherit', fontSize: 14, fontWeight: 500,
-              justifyContent: isCompact ? 'center' : 'flex-start',
-              padding: isCompact ? '10px' : undefined,
+              justifyContent: showCompact ? 'center' : 'flex-start',
+              padding: showCompact ? '10px' : undefined,
             }}
           >
-            <span className="nav-icon" style={{ fontSize: isCompact ? 20 : 18 }}>
+            <span className="nav-icon" style={{ fontSize: showCompact ? 20 : 18 }}>
               🚪
             </span>
-            {!isCompact && 'Cerrar sesión'}
+            {!showCompact && 'Cerrar sesión'}
           </button>
         </div>
       </aside>

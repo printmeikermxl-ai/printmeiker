@@ -5257,9 +5257,119 @@ body {
     gap: 12px !important;
   }
 
+  /* Apilar en vertical si la pantalla es muy pequeña para evitar desborde de tarjetas */
+  @media (max-width: 480px) {
+    .stat-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  /* Ajustar botones de bienvenida para móviles para que no se desborden horizontalmente */
+  .welcome-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  @media (max-width: 576px) {
+    .welcome-actions {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+    .welcome-action-btn {
+      width: 100% !important;
+      justify-content: center !important;
+      text-align: center;
+    }
+  }
+
   .calc-wrapper-full {
-    flex-direction: column !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
     gap: 16px !important;
+  }
+
+  /* Evitar desbordamiento de tablas de depreciación y costos fijos en móvil */
+  .deprec-table-wrap {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    border: 1px solid hsl(var(--border));
+  }
+
+  .deprec-table {
+    min-width: 650px !important; /* Mantiene la tabla legible sin deformar el viewport */
+    width: 100% !important;
+  }
+
+  .fijos-table {
+    width: 100% !important;
+    overflow-x: auto !important;
+  }
+
+  /* Hacer responsivas las pestañas de categorías y controles de notas en móvil */
+  .nw-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    padding: 16px !important;
+  }
+
+  .nw-header-right {
+    width: 100% !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .nw-search {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+
+  .nw-view-toggle {
+    display: none !important; /* Ocultar el selector de vista en móvil para liberar espacio */
+  }
+
+  .nw-cat-manage-btn,
+  .nw-create-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .nw-tabs-wrapper {
+    padding: 10px 14px 0 !important;
+  }
+
+  .nw-tabs {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding-bottom: 4px !important;
+  }
+
+  .nw-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .nw-tab {
+    padding: 8px 12px !important;
+  }
+
+  .nw-body {
+    padding: 14px 16px 20px !important;
+  }
+
+  .nw-notes-container.grid {
+    grid-template-columns: 1fr !important; /* Notas a 1 columna en teléfonos */
+  }
+
+  .nw-modal {
+    max-width: 95vw !important;
+    margin: 10px auto !important;
   }
 
   /* 4. Encabezados de Página Responsivos y Más Grandes */
