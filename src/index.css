@@ -5094,13 +5094,16 @@ body {
     top: 0;
     left: 0;
     bottom: 0;
-    width: 280px;
+    width: 290px;
+    max-width: 80vw;
     height: 100vh;
     z-index: 1000;
     transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: var(--shadow-lg);
-    background: hsl(var(--card));
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.08) !important;
+    background-image: none !important;
+    background: hsl(var(--card)) !important;
+    border-right: 1px solid hsl(var(--border)) !important;
   }
 
   .sidebar.open {
@@ -5119,33 +5122,72 @@ body {
     animation: fadeIn 0.2s ease;
   }
 
-  /* Botón de cerrar menú en la barra lateral */
+  /* Botón de cerrar menú minimalista (estilo Sepayali) */
   .sidebar-close-btn {
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: center;
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    font-size: 16px;
-    color: hsl(var(--foreground));
-    background: hsl(var(--bg));
-    border: 1px solid hsl(var(--border));
-    cursor: pointer;
-    transition: all 0.2s ease;
+    position: absolute !important;
+    top: 18px !important;
+    right: 18px !important;
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 20px !important;
+    color: hsl(var(--muted)) !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    opacity: 0.8;
+  }
+
+  .sidebar-close-btn:hover {
+    opacity: 1;
   }
 
   .sidebar-close-btn:active {
     transform: scale(0.9);
-    background: hsl(var(--sidebar-active));
   }
 
   /* Mostrar la hamburguesa siempre en el header */
   .topbar .hamburger {
     display: block !important;
+  }
+
+  /* Ajustes en los ítems de navegación en el Sidebar cuando está abierto como Drawer */
+  .sidebar .nav-item {
+    font-size: 15px !important;
+    padding: 12px 14px !important;
+    gap: 12px !important;
+    border-radius: 8px !important;
+    color: hsl(var(--foreground)) !important;
+    opacity: 0.85;
+    background: transparent;
+  }
+
+  .sidebar .nav-item.active {
+    background: hsl(var(--primary-light)) !important;
+    color: hsl(var(--primary)) !important;
+    font-weight: 600 !important;
+    opacity: 1;
+  }
+
+  .sidebar .nav-section-label {
+    font-size: 11px !important;
+    padding: 12px 14px 6px !important;
+    color: hsl(var(--muted)) !important;
+  }
+
+  .sidebar-logo {
+    padding: 20px 18px !important;
+    border-bottom: 1px solid hsl(var(--border)) !important;
+  }
+
+  .sidebar-footer {
+    padding: 16px 12px !important;
+    border-top: 1px solid hsl(var(--border)) !important;
+    background: hsl(var(--card)) !important;
   }
 }
 
@@ -5160,9 +5202,9 @@ body {
     font-size: 14.5px;
   }
 
-  /* 1. Reducir espaciado lateral y aumentar el padding inferior para la barra de navegación */
+  /* 1. Reducir espaciado lateral y padding inferior (sin bottom-nav) */
   .page-area {
-    padding: 12px 12px calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 16px) !important;
+    padding: 12px 12px calc(24px + env(safe-area-inset-bottom)) !important;
   }
 
   /* Ajustar topbar y añadir safe-area-inset-top para que no se oculte tras el notch */
@@ -5198,98 +5240,20 @@ body {
     margin-left: 6px !important;
   }
 
-  /* 2. Barra de Navegación Inferior (Estilo Nativo App más legible) */
+  /* 2. Barra de Navegación Inferior - Oculta en móviles (Estilo Sepayali) */
   .bottom-nav {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: calc(72px + env(safe-area-inset-bottom));
-    background: rgba(255, 255, 255, 0.96);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-top: 1px solid hsl(var(--border));
-    justify-content: space-around;
-    align-items: center;
-    z-index: 950;
-    padding-bottom: env(safe-area-inset-bottom);
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.07);
+    display: none !important;
   }
 
-  /* Adaptación al Tema Oscuro para la bottom-nav */
-  .dark-theme .bottom-nav {
-    background: rgba(20, 20, 26, 0.96);
-    border-top-color: hsl(var(--border));
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
-  }
-
-  .bottom-nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    height: 100%;
-    text-align: center;
-    color: hsl(var(--muted));
-    font-size: 11px;
-    font-weight: 600;
-    gap: 4px;
-    transition: color 0.2s ease, transform 0.15s ease;
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 8px 0;
-  }
-
-  .bottom-nav-item:active {
-    transform: scale(0.92);
-  }
-
-  .bottom-nav-icon {
-    font-size: 22px;
-    display: block;
-    line-height: 1;
-  }
-
-  .bottom-nav-label {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 80px;
-  }
-
-  .bottom-nav-item.active {
-    color: hsl(var(--primary));
-    font-weight: 700;
-  }
-
-  /* Badge rojo brillante sobre el icono de pedidos */
-  .bottom-nav-badge {
-    position: absolute;
-    top: -4px;
-    right: -8px;
-    background: hsl(var(--danger));
-    color: white;
-    font-size: 9.5px;
-    font-weight: 700;
-    padding: 0 4.5px;
-    border-radius: 99px;
-    min-width: 15px;
-    height: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4);
-    border: 1.5px solid hsl(var(--card));
-  }
-
-  /* 3. Colapso de Grillas a 1 columna en móvil y espaciados de calculadora */
+  /* 3. Colapso de Grillas y espaciados de calculadora */
   .form-grid,
-  .form-grid-3,
-  .stat-grid {
+  .form-grid-3 {
     grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .stat-grid {
+    grid-template-columns: 1fr 1fr !important; /* Cuadrícula 2x2 como en Sepayali */
     gap: 12px !important;
   }
 
@@ -5424,23 +5388,30 @@ body {
   .btn {
     min-height: 46px;
     font-size: 15px !important;
-    padding: 10px 16px !important;
-    border-radius: 10px !important;
+    padding: 10px 22px !important;
+    border-radius: 99px !important; /* Estilo pill como Sepayali */
   }
 
   .btn-sm {
     min-height: 36px !important;
     font-size: 13px !important;
-    padding: 6px 12px !important;
+    padding: 6px 16px !important;
+    border-radius: 99px !important;
   }
 
   .form-input,
-  .form-select,
-  .form-textarea {
+  .form-select {
     min-height: 46px;
-    font-size: 16px !important; /* Importante para que no haga zoom en iOS */
-    padding: 10px 14px !important;
-    border-radius: 10px !important;
+    font-size: 16px !important;
+    padding: 10px 20px !important;
+    border-radius: 99px !important; /* Estilo pill */
+  }
+
+  .form-textarea {
+    min-height: 80px;
+    font-size: 16px !important;
+    padding: 12px 18px !important;
+    border-radius: 18px !important; /* Redondeado suave para textareas */
   }
 
   .form-label {
@@ -5459,18 +5430,18 @@ body {
 
   /* Tarjetas del Dashboard principal y comunes */
   .card {
-    border-radius: 14px !important;
+    border-radius: 20px !important; /* Esquinas muy redondeadas y suaves */
     margin-bottom: 16px !important;
     box-shadow: var(--shadow-sm) !important;
   }
 
   .card-body {
-    padding: 16px !important;
+    padding: 18px !important;
   }
 
   .stat-card {
     padding: 16px !important;
-    border-radius: 14px !important;
+    border-radius: 20px !important; /* Esquinas de tarjetas de resumen */
   }
 
   .stat-value {
@@ -5482,9 +5453,10 @@ body {
     font-size: 13px !important;
   }
 
-  /* Ocultar avatar de topbar en móviles para simplificar la barra superior */
+  /* Ocultar avatar y appname de topbar en móviles para simplificar la barra superior */
   .topbar-avatar,
-  .topbar .topbar-spacer ~ div {
+  .topbar-avatar-container,
+  .topbar-app-name-container {
     display: none !important;
   }
 

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Sidebar, getAvatarGradient } from './components/Sidebar';
-import { BottomNav } from './components/BottomNav';
 import { Dashboard } from './pages/Dashboard';
 import { PedidosPage } from './pages/PedidosPage';
 import { CalendarioPage } from './pages/CalendarioPage';
@@ -238,7 +237,7 @@ const AppLayout = () => {
           </button>
           <span className="topbar-title">{title}</span>
           <div className="topbar-spacer" />
-          <div style={{ fontSize: 13, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="topbar-app-name-container" style={{ fontSize: 13, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>{config.appName || 'PrintMeiker'}</span>
           </div>
 
@@ -267,7 +266,7 @@ const AppLayout = () => {
             {store.getState().darkMode ? '☀️' : '🌙'}
           </button>
           {config.profilePhoto ? (
-            <div style={{
+            <div className="topbar-avatar-container" style={{
               padding: '2px',
               background: getAvatarGradient(themeColor),
               borderRadius: '50%',
@@ -317,8 +316,6 @@ const AppLayout = () => {
           </Routes>
         </main>
       </div>
-
-      <BottomNav onMenuClick={() => setSidebarOpen(true)} />
     </div>
   );
 };
