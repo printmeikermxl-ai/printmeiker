@@ -597,13 +597,45 @@ export const PedidosPage = () => {
     e.preventDefault();
     const data = { ...form, total };
     if (editId) {
+      const previousPedido = pedidos.find(p => p.id === editId);
       store.updatePedido(editId, data);
       setModal(null);
+      
+      // Si el estado cambió a completado y antes no lo estaba, disparar el flujo de liquidación
+      if (data.estado === 'completado' && previousPedido && previousPedido.estado !== 'completado') {
+        const costoProdCalculado = (data.productos || []).reduce((acc, linea) => {
+          const prod = catalogo.find(c => c.nombre === linea.nombre);
+          if (prod && prod.costoProd) {
+            return acc + (Number(prod.costoProd) * Number(linea.cantidad || 1));
+          }
+          return acc;
+        }, 0);
+        setFinanzasCostoProd(costoProdCalculado > 0 ? String(costoProdCalculado) : '');
+        const anticipo = Number(data.anticipo || 0);
+        const totalPed = Number(total || 0);
+        const saldoRestante = totalPed - anticipo;
+        setFinanzasMontoIngreso(saldoRestante > 0 ? String(saldoRestante) : '0');
+        setFinanzasDialog({ ...data, id: editId });
+      }
     } else {
       const newPedido = store.addPedidoReturn(data);
       setModal(null);
-      // Si hay anticipo, ofrecer registrarlo en Finanzas
-      if (Number(data.anticipo || 0) > 0 && newPedido) {
+      // Si se crea ya completado, abrir diálogo de liquidación
+      if (data.estado === 'completado' && newPedido) {
+        const costoProdCalculado = (data.productos || []).reduce((acc, linea) => {
+          const prod = catalogo.find(c => c.nombre === linea.nombre);
+          if (prod && prod.costoProd) {
+            return acc + (Number(prod.costoProd) * Number(linea.cantidad || 1));
+          }
+          return acc;
+        }, 0);
+        setFinanzasCostoProd(costoProdCalculado > 0 ? String(costoProdCalculado) : '');
+        const anticipo = Number(data.anticipo || 0);
+        const totalPed = Number(total || 0);
+        const saldoRestante = totalPed - anticipo;
+        setFinanzasMontoIngreso(saldoRestante > 0 ? String(saldoRestante) : '0');
+        setFinanzasDialog(newPedido);
+      } else if (Number(data.anticipo || 0) > 0 && newPedido) {
         setAnticipóDialog(newPedido);
         setAnticipóMetodo('efectivo');
         setAnticipóMontoEfectivo('');
@@ -624,9 +656,9 @@ export const PedidosPage = () => {
 
   const updateEstado = (id, nuevoEstado) => {
     const pedido = pedidos.find(p => p.id === id);
+    const anteriorEstado = pedido ? pedido.estado : '';
     store.updatePedido(id, { estado: nuevoEstado });
-    if (nuevoEstado === 'completado' && pedido) {
-      // Calcular costo de producción desde el catálogo
+    if (nuevoEstado === 'completado' && pedido && anteriorEstado !== 'completado') {
       const costoProdCalculado = (pedido.productos || []).reduce((acc, linea) => {
         const prod = catalogo.find(c => c.nombre === linea.nombre);
         if (prod && prod.costoProd) {
@@ -635,7 +667,6 @@ export const PedidosPage = () => {
         return acc;
       }, 0);
       setFinanzasCostoProd(costoProdCalculado > 0 ? String(costoProdCalculado) : '');
-      // Solo mostrar el saldo restante (lo que falta por cobrar)
       const anticipo = Number(pedido.anticipo || 0);
       const totalPed = Number(pedido.total || 0);
       const saldoRestante = totalPed - anticipo;
@@ -784,6 +815,7 @@ export const PedidosPage = () => {
           etiquetasPedidos={etiquetasPedidos}
           onView={openView}
           onEdit={openEdit}
+          onUpdateEstado={updateEstado}
         />
       ) : filtered.length === 0 ? (
         <div className="empty-state">
@@ -1306,6 +1338,15 @@ export const PedidosPage = () => {
                       categoria,
                       metodoPago: finanzasMetodo,
                     });
+
+                    // Actualizar el pedido en el store agregando el pago a su anticipo para liquidar el saldo
+                    const actualPedido = store.getState().pedidos.find(p => p.id === finanzasDialog.id);
+                    if (actualPedido) {
+                      const prevAnticipo = Number(actualPedido.anticipo || 0);
+                      const newAnticipo = prevAnticipo + monto;
+                      store.updatePedido(actualPedido.id, { anticipo: newAnticipo });
+                    }
+
                     setFinanzasDialog(null);
                     setFinanzasCostoProd('');
                     setFinanzasMontoIngreso('');

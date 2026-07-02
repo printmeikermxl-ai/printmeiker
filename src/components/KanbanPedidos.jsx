@@ -24,7 +24,7 @@ const ETIQUETAS_CONFIG = [
 
 export { ETIQUETAS_CONFIG };
 
-const KanbanCard = ({ pedido, canalesVenta, etiquetasPedidos = [], onView, onEdit }) => {
+const KanbanCard = ({ pedido, canalesVenta, etiquetasPedidos = [], onView, onEdit, onUpdateEstado }) => {
   const cfg = ESTADO_CONFIG[pedido.estado] || ESTADO_CONFIG.pendiente;
   const saldo = (pedido.total || 0) - (pedido.anticipo || 0);
   const etiquetas = (pedido.etiquetas || [])
@@ -83,13 +83,12 @@ const KanbanCard = ({ pedido, canalesVenta, etiquetasPedidos = [], onView, onEdi
         </div>
       )}
 
-      {/* Move buttons */}
       <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
         {prevEstado && (
           <button
             className="btn btn-ghost btn-sm"
             style={{ flex: 1, fontSize: 10, padding: '3px 0' }}
-            onClick={() => store.updatePedido(pedido.id, { estado: prevEstado })}
+            onClick={() => onUpdateEstado ? onUpdateEstado(pedido.id, prevEstado) : store.updatePedido(pedido.id, { estado: prevEstado })}
             title={`Mover a ${ESTADO_CONFIG[prevEstado]?.label}`}
           >
             ← {ESTADO_CONFIG[prevEstado]?.icon}
@@ -99,7 +98,7 @@ const KanbanCard = ({ pedido, canalesVenta, etiquetasPedidos = [], onView, onEdi
           <button
             className="btn btn-primary btn-sm"
             style={{ flex: 1, fontSize: 10, padding: '3px 0', background: ESTADO_CONFIG[nextEstado]?.color, borderColor: ESTADO_CONFIG[nextEstado]?.color }}
-            onClick={() => store.updatePedido(pedido.id, { estado: nextEstado })}
+            onClick={() => onUpdateEstado ? onUpdateEstado(pedido.id, nextEstado) : store.updatePedido(pedido.id, { estado: nextEstado })}
             title={`Mover a ${ESTADO_CONFIG[nextEstado]?.label}`}
           >
             {ESTADO_CONFIG[nextEstado]?.icon} →
@@ -110,7 +109,7 @@ const KanbanCard = ({ pedido, canalesVenta, etiquetasPedidos = [], onView, onEdi
   );
 };
 
-export const KanbanPedidos = ({ pedidos, canalesVenta, etiquetasPedidos = [], onView, onEdit }) => {
+export const KanbanPedidos = ({ pedidos, canalesVenta, etiquetasPedidos = [], onView, onEdit, onUpdateEstado }) => {
   return (
     <div className="kanban-board">
       {ESTADOS.map(estado => {
@@ -149,6 +148,7 @@ export const KanbanPedidos = ({ pedidos, canalesVenta, etiquetasPedidos = [], on
                     etiquetasPedidos={etiquetasPedidos}
                     onView={onView}
                     onEdit={onEdit}
+                    onUpdateEstado={onUpdateEstado}
                   />
                 ))
               )}
