@@ -16,6 +16,9 @@ import { useStore } from './store/useStore';
 import { applyTheme } from './store/useStore';
 import { loadFromCloud, saveToCloud } from './store/useStore';
 import { store } from './store/useStore';
+import { GlobalSearch } from './components/GlobalSearch';
+import { NotificacionesPanel, NotifBell } from './components/NotificacionesPanel';
+import { CalculadoraFlotante } from './components/CalculadoraFlotante';
 
 const PAGE_TITLES = {
   '/': '🏠 Dashboard',
@@ -67,6 +70,8 @@ const AppLayout = () => {
   const [isCompactSidebar, setIsCompactSidebar] = useState(
     () => typeof window !== 'undefined' && localStorage.getItem('sep_sidebar_mode') === 'compact' && window.innerWidth > 1024
   );
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const location = useLocation();
   const { themeColor, config } = useStore();
   const { user, signOut } = useAuth();
@@ -85,6 +90,26 @@ const AppLayout = () => {
       window.removeEventListener('sep_sidebar_changed', handleStorage);
       window.removeEventListener('resize', handleStorage);
     };
+  }, []);
+
+  // ── Ctrl+K global search ──
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(o => !o);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // ── PWA install prompt ──
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); store.setDeferredPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => { store.setPwaInstalled(true); store.setDeferredPrompt(null); });
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
   // Función para cargar datos de la nube y actualizar el store
@@ -227,6 +252,9 @@ const AppLayout = () => {
 
   return (
     <div className={`app-layout ${isCompactSidebar ? 'has-compact-sidebar' : ''}`}>
+      {/* Global overlays */}
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <CalculadoraFlotante />
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -241,6 +269,29 @@ const AppLayout = () => {
           </button>
           <span className="topbar-title">{title}</span>
           <div className="topbar-spacer" />
+
+          {/* Search button */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="topbar-search-btn"
+            title="Buscar (Ctrl+K)"
+          >
+            <span>🔍</span>
+            <span className="topbar-search-kbd">Ctrl K</span>
+          </button>
+
+          {/* Notifications */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setNotifOpen(o => !o)}
+              className="topbar-notif-btn"
+              title="Notificaciones"
+            >
+              <NotifBell />
+            </button>
+            <NotificacionesPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
+          </div>
+
           <div className="topbar-app-name-container" style={{ fontSize: 13, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>{config.appName || 'PrintMeiker'}</span>
           </div>

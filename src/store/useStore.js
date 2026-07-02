@@ -85,6 +85,16 @@ const seedCanalesVenta = [
   { id: 'canal-5', nombre: 'Otro', emoji: '🌐', color: '#FEF9C3', text: '#a16207' },
 ];
 
+const seedEtiquetasPedidos = [
+  { id: 'urgente',    nombre: 'Urgente',     emoji: '🔴', color: '#fee2e2', text: '#991b1b' },
+  { id: 'vip',        nombre: 'VIP',         emoji: '⭐', color: '#fef9c3', text: '#854d0e' },
+  { id: 'corporativo',nombre: 'Corporativo', emoji: '🏢', color: '#dbeafe', text: '#1e40af' },
+  { id: 'diseno',     nombre: 'Diseño',      emoji: '🎨', color: '#ede9fe', text: '#6b21a8' },
+  { id: 'repetido',   nombre: 'Repetido',    emoji: '🔁', color: '#d1fae5', text: '#065f46' },
+  { id: 'express',    nombre: 'Express',     emoji: '⚡', color: '#fce7f3', text: '#9d174d' },
+  { id: 'mayoreo',    nombre: 'Mayoreo',     emoji: '📦', color: '#f3f4f6', text: '#374151' },
+];
+
 // ── main store hook ───────────────────────────────────────────────────────────
 let listeners = [];
 let state = {
@@ -96,6 +106,7 @@ let state = {
   etiquetasPersonalizadas: load('sep_etiquetas', []),
   categoriasProducto: load('sep_categorias_producto', seedCategorias),
   canalesVenta: load('sep_canales_venta', seedCanalesVenta),
+  etiquetasPedidos: load('sep_etiquetas_pedidos', seedEtiquetasPedidos),
   config: load('sep_config', {
     appName: 'PrintMeiker',
     profilePhoto: '',
@@ -136,6 +147,8 @@ let state = {
     { id: 'tarea',      label: 'Tareas',     emoji: '✅', color: '#22c55e' },
     { id: 'importante', label: 'Importante', emoji: '🔴', color: '#ef4444' },
   ]),
+  deferredPrompt: null,
+  pwaInstalled: false,
 };
 
 const notify = () => listeners.forEach(fn => fn({ ...state }));
@@ -151,6 +164,8 @@ export const store = {
     listeners.push(fn);
     return () => { listeners = listeners.filter(l => l !== fn); };
   },
+  setDeferredPrompt: (p) => setState({ deferredPrompt: p }),
+  setPwaInstalled: (installed) => setState({ pwaInstalled: installed }),
 
   // ── productos ──
   addProducto: (p) => {
@@ -313,6 +328,23 @@ export const store = {
     setState({ etiquetasPersonalizadas });
   },
 
+  // ── etiquetas pedidos ──
+  addEtiquetaPedido: (et) => {
+    const etiquetasPedidos = [...state.etiquetasPedidos, { ...et, id: 'ETP' + Date.now().toString().slice(-5) }];
+    save('sep_etiquetas_pedidos', etiquetasPedidos);
+    setState({ etiquetasPedidos });
+  },
+  updateEtiquetaPedido: (id, et) => {
+    const etiquetasPedidos = state.etiquetasPedidos.map(x => x.id === id ? { ...x, ...et } : x);
+    save('sep_etiquetas_pedidos', etiquetasPedidos);
+    setState({ etiquetasPedidos });
+  },
+  deleteEtiquetaPedido: (id) => {
+    const etiquetasPedidos = state.etiquetasPedidos.filter(x => x.id !== id);
+    save('sep_etiquetas_pedidos', etiquetasPedidos);
+    setState({ etiquetasPedidos });
+  },
+
   // ── categorias producto ──
   addCategoriaProducto: (cat) => {
     const categoriasProducto = [...state.categoriasProducto, { ...cat, id: 'cat-' + Date.now().toString().slice(-6) }];
@@ -447,6 +479,7 @@ export const store = {
       darkMode:               isDark,
       notas:                  load('sep_notas', []),
       categoriasNotas:        load('sep_categorias_notas', state.categoriasNotas),
+      etiquetasPedidos:       load('sep_etiquetas_pedidos', seedEtiquetasPedidos),
     };
     state = { ...state, ...newState };
     applyTheme(state.themeColor, isDark);
@@ -633,7 +666,108 @@ export const THEMES = {
     '--sidebar-active': '243 32% 92%',
     name: 'Índigo',
   },
+  // ── Colores adicionales ───────────────────────────────────────────────────
+  '#f43f5e': {
+    '--primary': '347 86% 61%',
+    '--primary-light': '347 86% 93%',
+    '--primary-dark': '347 86% 44%',
+    '--primary-rgb': '244, 63, 94',
+    '--accent': '330 80% 62%',
+    '--bg': '347 70% 98%',
+    '--sidebar-bg': '347 48% 97%',
+    '--sidebar-active': '347 40% 92%',
+    name: 'Coral',
+  },
+  '#10b981': {
+    '--primary': '160 84% 39%',
+    '--primary-light': '160 84% 91%',
+    '--primary-dark': '160 84% 25%',
+    '--primary-rgb': '16, 185, 129',
+    '--accent': '142 72% 42%',
+    '--bg': '160 55% 97%',
+    '--sidebar-bg': '160 38% 96%',
+    '--sidebar-active': '160 32% 91%',
+    name: 'Menta',
+  },
+  '#a78bfa': {
+    '--primary': '254 88% 75%',
+    '--primary-light': '254 88% 94%',
+    '--primary-dark': '254 88% 52%',
+    '--primary-rgb': '167, 139, 250',
+    '--accent': '270 80% 72%',
+    '--bg': '254 60% 98%',
+    '--sidebar-bg': '254 42% 97%',
+    '--sidebar-active': '254 36% 92%',
+    name: 'Lavanda',
+  },
+  '#92400e': {
+    '--primary': '28 72% 31%',
+    '--primary-light': '28 72% 92%',
+    '--primary-dark': '28 72% 18%',
+    '--primary-rgb': '146, 64, 14',
+    '--accent': '38 88% 48%',
+    '--bg': '28 52% 97%',
+    '--sidebar-bg': '28 36% 96%',
+    '--sidebar-active': '28 30% 91%',
+    name: 'Café',
+  },
+  '#475569': {
+    '--primary': '215 28% 37%',
+    '--primary-light': '215 28% 92%',
+    '--primary-dark': '215 28% 22%',
+    '--primary-rgb': '71, 85, 105',
+    '--accent': '215 30% 55%',
+    '--bg': '215 20% 97%',
+    '--sidebar-bg': '215 15% 96%',
+    '--sidebar-active': '215 14% 91%',
+    name: 'Grafito',
+  },
+  '#06b6d4': {
+    '--primary': '186 94% 43%',
+    '--primary-light': '186 94% 91%',
+    '--primary-dark': '186 94% 28%',
+    '--primary-rgb': '6, 182, 212',
+    '--accent': '191 88% 50%',
+    '--bg': '186 62% 97%',
+    '--sidebar-bg': '186 44% 96%',
+    '--sidebar-active': '186 38% 91%',
+    name: 'Turquesa',
+  },
+  '#9f1239': {
+    '--primary': '343 88% 35%',
+    '--primary-light': '343 88% 93%',
+    '--primary-dark': '343 88% 20%',
+    '--primary-rgb': '159, 18, 57',
+    '--accent': '355 78% 52%',
+    '--bg': '343 62% 98%',
+    '--sidebar-bg': '343 44% 97%',
+    '--sidebar-active': '343 38% 92%',
+    name: 'Sangría',
+  },
+  '#4d7c0f': {
+    '--primary': '82 82% 28%',
+    '--primary-light': '82 82% 92%',
+    '--primary-dark': '82 82% 16%',
+    '--primary-rgb': '77, 124, 15',
+    '--accent': '100 72% 38%',
+    '--bg': '82 54% 97%',
+    '--sidebar-bg': '82 38% 96%',
+    '--sidebar-active': '82 32% 91%',
+    name: 'Oliva',
+  },
+  '#1a1a1a': {
+    '--primary': '0 0% 12%',
+    '--primary-light': '0 0% 88%',
+    '--primary-dark': '0 0% 4%',
+    '--primary-rgb': '26, 26, 26',
+    '--accent': '0 0% 30%',
+    '--bg': '0 0% 97%',
+    '--sidebar-bg': '0 0% 96%',
+    '--sidebar-active': '0 0% 90%',
+    name: 'Negro',
+  },
 };
+
 
 export const applyTheme = (color, isDark = localStorage.getItem('sep_dark_mode') === 'true') => {
   const theme = THEMES[color] || THEMES['#1f51d3'];
@@ -713,6 +847,9 @@ window.addEventListener('storage', (e) => {
         break;
       case 'sep_canales_venta':
         setState({ canalesVenta: JSON.parse(e.newValue) });
+        break;
+      case 'sep_etiquetas_pedidos':
+        setState({ etiquetasPedidos: JSON.parse(e.newValue) });
         break;
       case 'sep_productos':
         setState({ productos: JSON.parse(e.newValue) });

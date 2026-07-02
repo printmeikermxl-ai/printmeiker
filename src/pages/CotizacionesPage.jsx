@@ -236,6 +236,19 @@ export const CotizacionesPage = () => {
   const openEdit = (c) => { setForm({ ...c }); setEditId(c.id); setModal('edit'); };
   const openView = (c) => { setForm({ ...c }); setEditId(c.id); setModal('view'); };
 
+  const sendWhatsApp = (c) => {
+    const tel = (c.telefono || '').replace(/\D/g, '');
+    const num = tel.startsWith('52') ? tel : `52${tel}`;
+    const total = `$${Number(c.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const msg = encodeURIComponent(
+      `Hola ${c.cliente} 👋, te comparto tu cotización *${c.id}* por un total de *${total}*.\n\n` +
+      (negocioConfig?.negocio || config?.negocio || 'PrintMeiker') + `\n` +
+      (config?.telefono ? `📞 ${config.telefono}` : '')
+    );
+    const url = tel ? `https://wa.me/${num}?text=${msg}` : `https://wa.me/?text=${msg}`;
+    window.open(url, '_blank');
+  };
+
   const handleSave = (e) => {
     e.preventDefault();
     const data = { ...form, total, anticipoMonto, saldoPendiente };
@@ -653,6 +666,14 @@ export const CotizacionesPage = () => {
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openView(c)} title="Ver">👁️</button>
                       <button className="btn btn-secondary btn-icon btn-sm" onClick={() => openEdit(c)} title="Editar">✏️</button>
+                      {c.telefono && (
+                        <button
+                          className="btn btn-ghost btn-icon btn-sm"
+                          onClick={() => sendWhatsApp(c)}
+                          title="Enviar por WhatsApp"
+                          style={{ color: '#25d366' }}
+                        >💬</button>
+                      )}
                       {(c.estado === 'pendiente' || c.estado === 'aprobada') && (
                         <button
                           className="btn btn-ghost btn-icon btn-sm"
@@ -1239,24 +1260,32 @@ export const CotizacionesPage = () => {
                     placeholder="Ej. Anticipo del 50% para apartar fecha. Saldo al entregar. Tiempo de producción: 3 a 7 días hábiles..."
                     rows={4}
                   />
-                  {negocioConfig?.terminosLocales && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => set('terminosCondiciones', negocioConfig.terminosLocales)}
-                      >
-                        📌 Usar términos locales
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => set('terminosCondiciones', negocioConfig.terminosNacionales || '')}
-                      >
-                        🚚 Usar términos nacionales
-                      </button>
-                    </div>
-                  )}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => set('terminosCondiciones', negocioConfig?.terminosLocales || '')}
+                      disabled={!negocioConfig?.terminosLocales}
+                      title={negocioConfig?.terminosLocales ? 'Cargar términos para entregas locales' : 'Configura los términos locales en Configuración > Negocio'}
+                    >
+                      📌 Usar términos locales
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => set('terminosCondiciones', negocioConfig?.terminosNacionales || '')}
+                      disabled={!negocioConfig?.terminosNacionales}
+                      title={negocioConfig?.terminosNacionales ? 'Cargar términos para envíos nacionales' : 'Configura los términos nacionales en Configuración > Negocio'}
+                    >
+                      🚚 Usar términos nacionales
+                    </button>
+                    {!negocioConfig?.terminosLocales && !negocioConfig?.terminosNacionales && (
+                      <span style={{ fontSize: 11, color: 'hsl(var(--muted))', fontStyle: 'italic' }}>
+                        ⚙️ Configura tus términos en <strong>Configuración → Negocio</strong>
+                      </span>
+                    )}
+                  </div>
+
                 </div>
 
               </div>
@@ -1303,6 +1332,7 @@ export const CotizacionesPage = () => {
                   📦 Enviar a Pedidos
                 </button>
               )}
+              <button className="btn btn-secondary" onClick={() => sendWhatsApp({ ...form, id: editId, total })} style={{ background: '#25d366', color: '#fff', borderColor: '#25d366' }}>📱 Compartir por WhatsApp</button>
               <button className="btn btn-secondary" onClick={handleDownloadImage}>🖼️ Guardar Imagen</button>
               <button className="btn btn-secondary" onClick={handleDownloadPDF}>📥 Descargar PDF</button>
             </div>

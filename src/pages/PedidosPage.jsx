@@ -5,7 +5,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProductLinesInput } from '../components/ProductLinesInput';
 import { ComprobantesSection } from '../components/ComprobantesSection';
 import { FieldHelp } from '../components/FieldHelp';
-
+import { KanbanPedidos, ETIQUETAS_CONFIG } from '../components/KanbanPedidos';
 
 const METODOS_PAGO_PED = [
   { value: 'efectivo',      label: 'Efectivo',                  icon: '💵', color: '#16a34a', bg: '#f0fdf4' },
@@ -35,6 +35,7 @@ const emptyForm = () => ({
   productos: [{ nombre: '', cantidad: 1, precio: 0 }],
   anticipo: 0, notas: '',
   ajuste: 0,
+  etiquetas: [],
 });
 
 const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
@@ -250,11 +251,187 @@ const ModalCanales = ({ canalesVenta = [], onClose }) => {
   );
 };
 
+const ModalEtiquetasPedidos = ({ etiquetasPedidos = [], onClose }) => {
+  const [nueva, setNueva] = useState({ nombre: '', emoji: '🏷️', color: COLORES_DISPONIBLES[0].bg, text: COLORES_DISPONIBLES[0].text });
+  const [editandoId, setEditandoId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+
+  const handleAgregar = () => {
+    if (!nueva.nombre.trim()) return;
+    store.addEtiquetaPedido({ nombre: nueva.nombre.trim(), emoji: nueva.emoji, color: nueva.color, text: nueva.text });
+    setNueva({ nombre: '', emoji: '🏷️', color: COLORES_DISPONIBLES[0].bg, text: COLORES_DISPONIBLES[0].text });
+  };
+
+  const handleEditar = (e) => {
+    setEditandoId(e.id);
+    setEditForm({ nombre: e.nombre, emoji: e.emoji || '🏷️', color: e.color, text: e.text });
+  };
+
+  const handleGuardarEdit = () => {
+    if (!editForm.nombre.trim()) return;
+    store.updateEtiquetaPedido(editandoId, editForm);
+    setEditandoId(null);
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal modal-lg" style={{ maxWidth: 560 }}>
+        <div className="modal-header">
+          <h2>🏷️ Gestionar etiquetas de pedidos</h2>
+          <button type="button" className="btn btn-ghost btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          {/* Etiquetas existentes */}
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'hsl(var(--muted))', marginBottom: 12 }}>
+            MIS ETIQUETAS ({etiquetasPedidos.length})
+          </div>
+
+          {etiquetasPedidos.length === 0 && (
+            <div style={{ padding: '12px 0', color: 'hsl(var(--muted))', fontSize: 13, textAlign: 'center' }}>
+              Sin etiquetas personalizadas aún. ¡Crea una!
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            {etiquetasPedidos.map(e => (
+              <div key={e.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 14px', borderRadius: 10, background: 'hsl(var(--bg))',
+                border: '1px solid hsl(var(--border))',
+              }}>
+                {editandoId === e.id ? (
+                  <>
+                    <select
+                      value={editForm.emoji}
+                      onChange={ev => setEditForm(f => ({ ...f, emoji: ev.target.value }))}
+                      style={{ fontSize: 18, border: 'none', background: 'transparent', cursor: 'pointer', width: 40 }}
+                    >
+                      {EMOJIS_DISPONIBLES.map(em => <option key={em} value={em}>{em}</option>)}
+                    </select>
+                    <input
+                      className="form-input"
+                      style={{ flex: 1, height: 34 }}
+                      value={editForm.nombre}
+                      onChange={ev => setEditForm(f => ({ ...f, nombre: ev.target.value }))}
+                      placeholder="Nombre de etiqueta"
+                    />
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {COLORES_DISPONIBLES.map((col, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setEditForm(f => ({ ...f, color: col.bg, text: col.text }))}
+                          style={{
+                            width: 20, height: 20, borderRadius: 99, background: col.bg,
+                            border: editForm.color === col.bg ? `2px solid ${col.text}` : '2px solid transparent',
+                            cursor: 'pointer',
+                          }}
+                          title={col.label}
+                        />
+                      ))}
+                    </div>
+                    <button type="button" className="btn btn-primary btn-sm" onClick={handleGuardarEdit}>✓</button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditandoId(null)}>✕</button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 18 }}>{e.emoji || '🏷️'}</span>
+                    <span style={{
+                      flex: 1, padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+                      background: e.color, color: e.text, display: 'inline-block',
+                    }}>
+                      {e.nombre}
+                    </span>
+                    <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => handleEditar(e)}>✏️</button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-icon btn-sm"
+                      style={{ color: 'hsl(var(--danger))' }}
+                      onClick={() => store.deleteEtiquetaPedido(e.id)}
+                    >🗑️</button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="divider" />
+
+          {/* Crear nueva etiqueta */}
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'hsl(var(--muted))', margin: '16px 0 12px' }}>
+            + NUEVA ETIQUETA
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px', background: 'hsl(var(--bg))', borderRadius: 10, border: '1px dashed hsl(var(--border))' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <select
+                value={nueva.emoji}
+                onChange={ev => setNueva(f => ({ ...f, emoji: ev.target.value }))}
+                style={{ fontSize: 20, border: 'none', background: 'transparent', cursor: 'pointer', width: 44 }}
+              >
+                {EMOJIS_DISPONIBLES.map(em => <option key={em} value={em}>{em}</option>)}
+              </select>
+              <input
+                className="form-input"
+                style={{ flex: 1 }}
+                value={nueva.nombre}
+                onChange={ev => setNueva(f => ({ ...f, nombre: ev.target.value }))}
+                placeholder="Nombre de la etiqueta (ej. Urgente, VIP...)"
+                onKeyDown={ev => ev.key === 'Enter' && handleAgregar()}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>Color:</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {COLORES_DISPONIBLES.map((col, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setNueva(f => ({ ...f, color: col.bg, text: col.text }))}
+                    style={{
+                      width: 22, height: 22, borderRadius: 99, background: col.bg,
+                      border: nueva.color === col.bg ? `2px solid ${col.text}` : '2px solid transparent',
+                      cursor: 'pointer', flexShrink: 0,
+                    }}
+                    title={col.label}
+                  />
+                ))}
+              </div>
+              {/* Preview */}
+              {nueva.nombre && (
+                <span style={{
+                  padding: '3px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+                  background: nueva.color, color: nueva.text,
+                }}>
+                  {nueva.emoji} {nueva.nombre}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={handleAgregar}
+              disabled={!nueva.nombre.trim()}
+            >
+              + Agregar etiqueta
+            </button>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn type-primary" style={{ background: 'hsl(var(--primary))', color: '#fff', padding: '9px 16px', borderRadius: 'var(--radius-sm)' }} onClick={onClose}>✓ Listo</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const PedidosPage = () => {
-  const { pedidos, productos: catalogo, config, canalesVenta } = useStore();
+  const { pedidos, productos: catalogo, config, canalesVenta, etiquetasPedidos } = useStore();
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [filtroCanal, setFiltroCanal] = useState('todos');
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState('todas');
+  const [viewMode, setViewMode] = useState('lista'); // 'lista' | 'kanban'
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [editId, setEditId] = useState(null);
@@ -275,7 +452,8 @@ export const PedidosPage = () => {
     const matchSearch = p.cliente.toLowerCase().includes(search.toLowerCase()) || p.id.toLowerCase().includes(search.toLowerCase());
     const matchEstado = filtroEstado === 'todos' || p.estado === filtroEstado;
     const matchCanal = filtroCanal === 'todos' || p.canal === filtroCanal;
-    return matchSearch && matchEstado && matchCanal;
+    const matchEtiqueta = filtroEtiqueta === 'todas' || (p.etiquetas || []).includes(filtroEtiqueta);
+    return matchSearch && matchEstado && matchCanal && matchEtiqueta;
   });
 
   const subtotal = form.productos.reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0);
@@ -367,9 +545,30 @@ export const PedidosPage = () => {
           <h2 className="page-title">📦 Pedidos</h2>
           <p className="page-subtitle">{pedidos.length} pedidos registrados</p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>
-          + Nuevo pedido
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* View toggle */}
+          <div style={{ display: 'flex', gap: 2, background: 'hsl(var(--bg))', borderRadius: 10, padding: 3, border: '1px solid hsl(var(--border))' }}>
+            <button
+              onClick={() => setViewMode('lista')}
+              className={`btn btn-sm ${viewMode === 'lista' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ padding: '5px 12px', fontSize: 12, borderRadius: 8 }}
+              title="Vista de lista"
+            >
+              ☰ Lista
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`btn btn-sm ${viewMode === 'kanban' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ padding: '5px 12px', fontSize: 12, borderRadius: 8 }}
+              title="Vista Kanban"
+            >
+              ▦ Kanban
+            </button>
+          </div>
+          <button className="btn btn-primary" onClick={openCreate}>
+            + Nuevo pedido
+          </button>
+        </div>
       </div>
 
       <div className="filters-bar" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
@@ -435,8 +634,50 @@ export const PedidosPage = () => {
         </div>
       </div>
 
-      {/* Table */}
-      {filtered.length === 0 ? (
+      {/* Etiquetas filter */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16, paddingTop: 4, alignItems: 'center' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted))', alignSelf: 'center' }}>🏷️ Etiqueta:</span>
+        <button
+          className={`btn btn-sm ${filtroEtiqueta === 'todas' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 99 }}
+          onClick={() => setFiltroEtiqueta('todas')}
+        >Todas</button>
+        {(etiquetasPedidos || []).map(e => (
+          <button
+            key={e.id}
+            onClick={() => setFiltroEtiqueta(filtroEtiqueta === e.id ? 'todas' : e.id)}
+            style={{
+              padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+              cursor: 'pointer', border: '1.5px solid',
+              background: filtroEtiqueta === e.id ? e.color : 'transparent',
+              color: filtroEtiqueta === e.id ? e.text : 'hsl(var(--muted))',
+              borderColor: filtroEtiqueta === e.id ? e.text : 'hsl(var(--border))',
+              transition: 'all 0.15s',
+            }}
+          >
+            {e.emoji || '🏷️'} {e.nombre}
+          </button>
+        ))}
+        <button
+          type="button"
+          className="btn btn-ghost btn-icon btn-sm"
+          style={{ borderRadius: '50%', width: 26, height: 26, padding: 0, display: 'grid', placeItems: 'center', flexShrink: 0, marginLeft: 4 }}
+          onClick={() => setModal('etiquetas')}
+          title="Gestionar etiquetas de pedidos"
+        >
+          ⚙️
+        </button>
+      </div>
+
+      {viewMode === 'kanban' ? (
+        <KanbanPedidos
+          pedidos={filtered}
+          canalesVenta={canalesVenta}
+          etiquetasPedidos={etiquetasPedidos}
+          onView={openView}
+          onEdit={openEdit}
+        />
+      ) : filtered.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">📦</div>
           <h3>Sin pedidos</h3>
@@ -468,6 +709,23 @@ export const PedidosPage = () => {
                     <td>
                       <div style={{ fontWeight: 600 }}>{p.cliente}</div>
                       {p.telefono && <div style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>{p.telefono}</div>}
+                      
+                      {/* Etiquetas del pedido en fila */}
+                      {(p.etiquetas || []).length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
+                          {p.etiquetas.map(id => {
+                            const e = (etiquetasPedidos || []).find(x => x.id === id || x.nombre === id);
+                            return e ? (
+                              <span key={id} style={{
+                                padding: '2px 7px', borderRadius: 99, fontSize: 10, fontWeight: 700,
+                                background: e.color, color: e.text, display: 'inline-flex', alignItems: 'center', gap: 3
+                              }}>
+                                {e.emoji || '🏷️'} {e.nombre}
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
                     </td>
                     <td style={{ fontSize: 13 }}>{p.fecha}</td>
                     <td style={{ fontSize: 13 }}>{p.fechaEntrega || '—'}</td>
@@ -576,6 +834,48 @@ export const PedidosPage = () => {
                   </div>
                 </div>
 
+                {/* Etiquetas de color */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>🏷️ Etiquetas del pedido</label>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 11, padding: '2px 8px', color: 'hsl(var(--primary))', height: 'auto', width: 'auto', borderRadius: 4 }}
+                      onClick={() => setModal('etiquetas')}
+                    >
+                      ⚙️ Gestionar etiquetas
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {(etiquetasPedidos || []).map(e => {
+                      const active = (form.etiquetas || []).includes(e.id);
+                      return (
+                        <button
+                          key={e.id}
+                          type="button"
+                          onClick={() => {
+                            const curr = form.etiquetas || [];
+                            set('etiquetas', active ? curr.filter(x => x !== e.id) : [...curr, e.id]);
+                          }}
+                          style={{
+                            padding: '5px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
+                            cursor: 'pointer', border: '1.5px solid',
+                            background: active ? e.color : 'transparent',
+                            color: active ? e.text : 'hsl(var(--muted))',
+                            borderColor: active ? e.text : 'hsl(var(--border))',
+                            transition: 'all 0.15s',
+                            transform: active ? 'scale(1.05)' : 'none',
+                          }}
+                        >
+                          {e.emoji || '🏷️'} {e.nombre}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <span style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 4, display: 'block' }}>Selecciona las que apliquen</span>
+                </div>
+
                 <div className="divider" />
 
                 <div className="divider" />
@@ -670,6 +970,19 @@ export const PedidosPage = () => {
                 <div><span className="text-muted">Entrega:</span><div>{form.fechaEntrega || '—'}</div></div>
                 <div><span className="text-muted">Origen del pedido:</span><div style={{ marginTop: 4 }}><CanalBadge canalId={form.canal} canalesVenta={canalesVenta} /></div></div>
               </div>
+              {/* Etiquetas en view */}
+              {(form.etiquetas || []).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0' }}>
+                  {(form.etiquetas || []).map(id => {
+                    const e = (etiquetasPedidos || []).find(x => x.id === id || x.nombre === id);
+                    return e ? (
+                      <span key={id} style={{ padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700, background: e.color, color: e.text }}>
+                        {e.emoji || '🏷️'} {e.nombre}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              )}
               <div className="divider" />
               <div className="form-label" style={{ marginBottom: 10 }}>Productos</div>
               <div className="table-wrapper">
@@ -1019,6 +1332,13 @@ export const PedidosPage = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* Modal etiquetas */}
+      {modal === 'etiquetas' && (
+        <ModalEtiquetasPedidos
+          etiquetasPedidos={etiquetasPedidos}
+          onClose={() => setModal(null)}
+        />
       )}
     </div>
   );

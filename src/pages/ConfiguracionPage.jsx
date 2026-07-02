@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { useStore, store, THEMES } from '../store/useStore';
 import { useAuth } from '../store/authStore';
 
+const DEFAULT_TERMINOS_LOCALES = 'Entrega en punto acordado o recolección en taller.\nAnticipo del 50% para apartar fecha. Saldo al entregar.\nTiempo de producción: 3 a 7 días hábiles según la pieza.';
+const DEFAULT_TERMINOS_NACIONALES = 'Envío por paquetería a tu cargo o cotizado aparte.\nAnticipo del 70% antes de iniciar producción.\nSaldo antes de enviar. Tiempo: 5 a 10 días hábiles.';
+
 // ── Sidebar width options ──
 const SIDEBAR_MODES = [
   { label: 'Compacto', value: 'compact', icon: '⬛', desc: 'Solo íconos' },
@@ -10,7 +13,7 @@ const SIDEBAR_MODES = [
 ];
 
 export const ConfiguracionPage = () => {
-  const { config, themeColor, darkMode, pedidos, cotizaciones, productos, finanzas, clientes } = useStore();
+  const { config, themeColor, darkMode, pedidos, cotizaciones, productos, finanzas, clientes, negocioConfig } = useStore();
   const { user } = useAuth();
   const [syncing, setSyncing]       = useState(false);
   const [saved, setSaved]           = useState(false);
@@ -21,6 +24,29 @@ export const ConfiguracionPage = () => {
   // Forms states
   const [formConfig, setFormConfig] = useState({ ...config });
   const [editConfig, setEditConfig] = useState(false);
+
+  // Terminos y Condiciones state
+  const [editTerminos, setEditTerminos] = useState(false);
+  const [formTerminos, setFormTerminos] = useState({
+    terminosLocales: negocioConfig?.terminosLocales || DEFAULT_TERMINOS_LOCALES,
+    terminosNacionales: negocioConfig?.terminosNacionales || DEFAULT_TERMINOS_NACIONALES,
+  });
+
+  useEffect(() => {
+    if (!editTerminos) {
+      setFormTerminos({
+        terminosLocales: negocioConfig?.terminosLocales || DEFAULT_TERMINOS_LOCALES,
+        terminosNacionales: negocioConfig?.terminosNacionales || DEFAULT_TERMINOS_NACIONALES,
+      });
+    }
+  }, [negocioConfig, editTerminos]);
+
+  const handleSaveTerminos = (e) => {
+    e.preventDefault();
+    store.updateNegocioConfig(formTerminos);
+    setEditTerminos(false);
+    showSaved();
+  };
 
   // Personalization local state (persisted to localStorage immediately)
   const [sidebarMode, setSidebarMode]   = useState(() => localStorage.getItem('sep_sidebar_mode') || 'normal');
@@ -335,6 +361,87 @@ export const ConfiguracionPage = () => {
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
                       <button type="button" className="btn btn-ghost" onClick={() => { setFormConfig(config); setEditConfig(false); }}>Cancelar</button>
                       <button type="submit" className="btn btn-primary">✓ Guardar</button>
+                    </div>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            {/* ── Términos y condiciones ── */}
+            <div className="card">
+              <div className="card-header" style={{ justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 20 }}>📜</span>
+                  <span className="card-title">Términos y condiciones</span>
+                </div>
+                {!editTerminos && (
+                  <button className="btn btn-secondary btn-sm" onClick={() => setEditTerminos(true)}>✏️ Editar</button>
+                )}
+              </div>
+              <form onSubmit={handleSaveTerminos}>
+                <div className="card-body">
+                  <p style={{ fontSize: 13, color: 'hsl(var(--muted))', marginBottom: 16, lineHeight: 1.6 }}>
+                    Define los textos predeterminados que aparecerán al generar una cotización. Podrás elegirlos con los botones <strong>"Usar términos locales"</strong> y <strong>"Usar términos nacionales"</strong>.
+                  </p>
+
+                  {/* Términos locales */}
+                  <div style={{ background: 'hsl(var(--bg))', borderRadius: 12, padding: 16, marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 18 }}>📌</span>
+                      <h4 style={{ fontWeight: 700, fontSize: 13, margin: 0, color: 'hsl(var(--muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Términos Locales</h4>
+                    </div>
+                    <p style={{ fontSize: 12, color: 'hsl(var(--muted))', marginBottom: 8, lineHeight: 1.5 }}>
+                      Para entregas en ciudad / recolección en taller.
+                    </p>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <textarea
+                        className={`form-textarea ${!editTerminos ? 'disabled' : ''}`}
+                        disabled={!editTerminos}
+                        rows={5}
+                        value={formTerminos.terminosLocales}
+                        onChange={e => setFormTerminos(prev => ({ ...prev, terminosLocales: e.target.value }))}
+                        placeholder="Ej. Anticipo del 50% para apartar fecha. Saldo al entregar..."
+                        style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Términos nacionales */}
+                  <div style={{ background: 'hsl(var(--bg))', borderRadius: 12, padding: 16, marginBottom: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 18 }}>🚚</span>
+                      <h4 style={{ fontWeight: 700, fontSize: 13, margin: 0, color: 'hsl(var(--muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Términos Nacionales</h4>
+                    </div>
+                    <p style={{ fontSize: 12, color: 'hsl(var(--muted))', marginBottom: 8, lineHeight: 1.5 }}>
+                      Para envíos por paquetería a todo México.
+                    </p>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <textarea
+                        className={`form-textarea ${!editTerminos ? 'disabled' : ''}`}
+                        disabled={!editTerminos}
+                        rows={5}
+                        value={formTerminos.terminosNacionales}
+                        onChange={e => setFormTerminos(prev => ({ ...prev, terminosNacionales: e.target.value }))}
+                        placeholder="Ej. Anticipo del 70% antes de iniciar producción. Saldo antes de enviar..."
+                        style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                      />
+                    </div>
+                  </div>
+
+                  {editTerminos && (
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => { setFormTerminos({ terminosLocales: negocioConfig?.terminosLocales || DEFAULT_TERMINOS_LOCALES, terminosNacionales: negocioConfig?.terminosNacionales || DEFAULT_TERMINOS_NACIONALES }); setEditTerminos(false); }}
+                      >Cancelar</button>
+                      <button type="submit" className="btn btn-primary">✓ Guardar términos</button>
+                    </div>
+                  )}
+
+                  {!editTerminos && (
+                    <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.15)', fontSize: 12, color: 'hsl(var(--muted))' }}>
+                      💡 Estos textos se cargarán automáticamente en nuevas cotizaciones y podrás elegirlos con un clic desde el formulario de cotización.
                     </div>
                   )}
                 </div>
@@ -667,6 +774,37 @@ export const ConfiguracionPage = () => {
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{value}</span>
                   </div>
                 ))}
+                {/* Stats */}
+                {store.getState().deferredPrompt && !store.getState().pwaInstalled && (
+                  <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '14px 24px',
+                    background: 'hsl(var(--primary) / 0.05)',
+                    border: '1px dashed hsl(var(--primary) / 0.3)',
+                    borderRadius: 10,
+                    margin: '12px 24px',
+                  }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>📲 Aplicación de escritorio / móvil</span>
+                      <span style={{ fontSize: 11, color: 'hsl(var(--muted))' }}>Instala PrintMeiker para acceso rápido offline y pantalla completa</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={async () => {
+                        const prompt = store.getState().deferredPrompt;
+                        if (!prompt) return;
+                        prompt.prompt();
+                        const { outcome } = await prompt.userChoice;
+                        if (outcome === 'accepted') store.setPwaInstalled(true);
+                        store.setDeferredPrompt(null);
+                      }}
+                      style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}
+                    >
+                      Instalar
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
