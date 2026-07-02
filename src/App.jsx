@@ -116,7 +116,7 @@ const AppLayout = () => {
   const reloadFromCloud = useCallback(async () => {
     if (!user) return;
     // Si hay cambios locales pendientes de guardar en la nube, evitamos sobrescribirlos
-    if (window.__cloudSaveTimer) {
+    if (window.__cloudSaveTimer || localStorage.getItem('sep_pending_cloud_sync') === 'true') {
       console.log('Recarga de nube pospuesta: cambios locales pendientes de subir.');
       return;
     }
@@ -145,7 +145,31 @@ const AppLayout = () => {
     if (!user) return;
 
     const loadAndPopulate = async () => {
-      await reloadFromCloud();
+      const isPending = localStorage.getItem('sep_pending_cloud_sync') === 'true';
+      if (isPending) {
+        console.log('Sincronizando cambios locales pendientes al iniciar...');
+        const s = store.getState();
+        try {
+          await saveToCloud(user.id, {
+            pedidos:       s.pedidos,
+            cotizaciones:  s.cotizaciones,
+            finanzas:      s.finanzas,
+            clientes:      s.clientes,
+            productos:     s.productos,
+            config:        s.config,
+            negocioConfig: s.negocioConfig,
+            themeColor:    s.themeColor,
+            notas:         s.notas,
+            categoriasNotas: s.categoriasNotas,
+          });
+          localStorage.setItem('sep_pending_cloud_sync', 'false');
+          console.log('Sincronización inicial de cambios locales completada.');
+        } catch (err) {
+          console.error('Error al sincronizar cambios locales en boot:', err);
+        }
+      } else {
+        await reloadFromCloud();
+      }
 
       // Esperar un tick para asegurarnos que el store ya se actualizó
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -191,6 +215,8 @@ const AppLayout = () => {
   // Recargar datos de la nube cuando la ventana vuelve a estar activa (cambio de pestaña/app)
   useEffect(() => {
     const handleFocus = () => {
+      const isPending = localStorage.getItem('sep_pending_cloud_sync') === 'true';
+      if (isPending) return;
       reloadFromCloud();
     };
     window.addEventListener('focus', handleFocus);
@@ -210,22 +236,32 @@ const AppLayout = () => {
     const unsub = store.subscribe(() => {
       // No guardar si estamos recargando desde la nube
       if (window.__isReloadingFromCloud) return;
+
+      // Marcar cambios pendientes locales de inmediato
+      localStorage.setItem('sep_pending_cloud_sync', 'true');
+
       // Usamos un debounce para no saturar la API
       clearTimeout(window.__cloudSaveTimer);
       window.__cloudSaveTimer = setTimeout(async () => {
         const s = store.getState();
-        await saveToCloud(user.id, {
-          pedidos:       s.pedidos,
-          cotizaciones:  s.cotizaciones,
-          finanzas:      s.finanzas,
-          clientes:      s.clientes,
-          productos:     s.productos,
-          config:        s.config,
-          negocioConfig: s.negocioConfig,
-          themeColor:    s.themeColor,
-          notas:         s.notas,
-          categoriasNotas: s.categoriasNotas,
-        });
+        try {
+          await saveToCloud(user.id, {
+            pedidos:       s.pedidos,
+            cotizaciones:  s.cotizaciones,
+            finanzas:      s.finanzas,
+            clientes:      s.clientes,
+            productos:     s.productos,
+            config:        s.config,
+            negocioConfig: s.negocioConfig,
+            themeColor:    s.themeColor,
+            notas:         s.notas,
+            categoriasNotas: s.categoriasNotas,
+          });
+          // Limpiar cambios pendientes de inmediato
+          localStorage.setItem('sep_pending_cloud_sync', 'false');
+        } catch (err) {
+          console.error('Error al sincronizar con la nube:', err);
+        }
         window.__cloudSaveTimer = null;
       }, 2000);
     });
@@ -235,6 +271,22 @@ const AppLayout = () => {
       window.__cloudSaveTimer = null;
     };
   }, [user]);
+
+  // Advertir al usuario al cerrar pestaña si hay cambios pendientes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      const isPending = localStorage.getItem('sep_pending_cloud_sync') === 'true';
+      if (isPending) {
+        e.preventDefault();
+        e.returnValue = 'Tienes cambios locales pendientes de guardar en la nube. ¿Seguro que deseas salir?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   // Aplicar tema y favicon
   useEffect(() => {
