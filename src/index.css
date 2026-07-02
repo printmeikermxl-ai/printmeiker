@@ -6698,5 +6698,10 @@ body {
   padding-top: 14px;
 }
 
+/* Evitar que el botón flotante de calculadora tape las acciones de la última fila */
+.table-wrapper {
+  margin-bottom: 75px !important;
+}
+
 
 
