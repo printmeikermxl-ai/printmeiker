@@ -1361,6 +1361,8 @@ export const CotizacionesPage = () => {
                   className="btn btn-primary"
                   onClick={() => handleConvertirPedido({ ...form, id: editId, total })}
                   style={{ marginRight: 'auto', background: 'hsl(var(--success))', borderColor: 'hsl(var(--success))' }}
+                >
+                  📦 Enviar a Pedidos
                 </button>
               )}
               <button className="btn btn-secondary" onClick={handleDownloadImage}>🖼️ Guardar Imagen</button>
