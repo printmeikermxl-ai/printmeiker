@@ -1475,99 +1475,136 @@ const ReciboDocument = ({ formData, pedidoId, config, canalesVenta, negocioConfi
   const saldo = total - anticipo;
 
   return (
-    <div className="rec-doc" id="printable-recibo-doc">
-      {/* HEADER */}
-      <div className="rec-header">
-        <div className="rec-header-left">
-          {config.profilePhoto ? (
-            <img src={config.profilePhoto} alt="Logo" className="rec-logo-img" />
-          ) : (
-            <div className="rec-logo-placeholder">{negocioInicial}</div>
-          )}
-          <div>
-            <div className="rec-company-name">{negocioNombre}</div>
-            {config.telefono && <div className="rec-company-detail">📞 {config.telefono}</div>}
-            {config.email && <div className="rec-company-detail">✉️ {config.email}</div>}
+    <div className="qd-doc" id="printable-recibo-doc">
+      {/* ── HEADER ── */}
+      <div className="qd-header">
+        {/* Left: Logo + Company */}
+        <div className="qd-header-left">
+          <div className="qd-logo-block">
+            {config.profilePhoto ? (
+              <img src={config.profilePhoto} alt="Logo" className="qd-logo-img" />
+            ) : (
+              <div className="qd-logo-placeholder">{negocioInicial}</div>
+            )}
+            <div className="qd-company-info">
+              <div className="qd-company-name">{negocioNombre}</div>
+              {config.telefono && <div className="qd-company-detail">📞 {config.telefono}</div>}
+              {config.email && <div className="qd-company-detail">✉️ {config.email}</div>}
+            </div>
           </div>
         </div>
-        <div>
-          <div className="rec-doc-title">Recibo de Pago</div>
-          <div className="rec-meta-grid">
-            <span className="rec-meta-label">Pedido No.:</span>
-            <span className="rec-meta-value">{pedidoId}</span>
-            <span className="rec-meta-label">Fecha Emisión:</span>
-            <span className="rec-meta-value">{new Date().toISOString().split('T')[0]}</span>
-            <span className="rec-meta-label">Fecha Pedido:</span>
-            <span className="rec-meta-value">{formData.fecha}</span>
+
+        {/* Right: RECIBO title + meta */}
+        <div className="qd-header-right">
+          <div className="qd-invoice-title">RECIBO DE PAGO</div>
+          <div className="qd-meta-grid">
+            <span className="qd-meta-label">Pedido No.:</span>
+            <span className="qd-meta-value">{pedidoId}</span>
+            <span className="qd-meta-label">Fecha Emisión:</span>
+            <span className="qd-meta-value">{new Date().toISOString().split('T')[0]}</span>
+            <span className="qd-meta-label">Fecha Pedido:</span>
+            <span className="qd-meta-value">{formData.fecha}</span>
+            {formData.canal && (() => {
+              const canalObj = (canalesVenta || []).find(c => c.id === formData.canal || c.nombre === formData.canal);
+              return canalObj ? (
+                <>
+                  <span className="qd-meta-label">Origen:</span>
+                  <span className="qd-meta-value" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    {canalObj.emoji || '🌐'} {canalObj.nombre}
+                  </span>
+                </>
+              ) : null;
+            })()}
           </div>
         </div>
       </div>
 
-      <div className="rec-accent-bar" />
+      {/* ── DIVIDER ACCENT ── */}
+      <div className="qd-accent-bar" />
 
-      {/* CLIENT INFO */}
-      <div className="rec-info-row">
-        <div className="rec-info-block">
-          <div className="rec-info-label">Recibido de:</div>
-          <div className="rec-client-name">{formData.cliente || 'Público en general'}</div>
-          {formData.telefono && <div className="rec-client-detail">📞 {formData.telefono}</div>}
-          {formData.email && <div className="rec-client-detail">✉️ {formData.email}</div>}
+      {/* ── CLIENT + PAYMENT INFO ── */}
+      <div className="qd-info-row">
+        {/* Client Info */}
+        <div className="qd-info-block">
+          <div className="qd-info-label">RECIBIDO DE:</div>
+          <div className="qd-client-name">{formData.cliente || '—'}</div>
+          {formData.telefono && <div className="qd-client-detail">📞 {formData.telefono}</div>}
+          {formData.email && <div className="qd-client-detail">✉️ {formData.email}</div>}
         </div>
-        <div className="rec-info-block">
-          <div className="rec-info-label">Detalles del Pago:</div>
-          <div className="rec-client-detail">
+
+        {/* Payment Detail Info */}
+        <div className="qd-info-block">
+          <div className="qd-info-label">DETALLES DEL PAGO:</div>
+          <div className="qd-client-detail">
             <div><strong>Método de pago:</strong> {formData.metodoPago ? formData.metodoPago.toUpperCase() : 'EFECTIVO'}</div>
-            {anticipo > 0 && <div><strong>Anticipo registrado:</strong> {fmt(anticipo)}</div>}
+            {anticipo > 0 && <div style={{ marginTop: 2 }}><strong>Anticipo registrado:</strong> {fmt(anticipo)}</div>}
             {saldo <= 0 ? (
-              <div style={{ color: 'green', fontWeight: 'bold', marginTop: 4 }}>🎉 PEDIDO TOTALMENTE LIQUIDADO</div>
+              <div style={{ color: '#16a34a', fontWeight: 'bold', marginTop: 6, fontSize: 12 }}>🎉 PEDIDO TOTALMENTE LIQUIDADO</div>
             ) : (
-              <div style={{ color: 'orange', fontWeight: 'bold', marginTop: 4 }}>⚠️ SALDO RESTANTE A LIQUIDAR: {fmt(saldo)}</div>
+              <div style={{ color: '#d97706', fontWeight: 'bold', marginTop: 6, fontSize: 12 }}>⚠️ SALDO RESTANTE: {fmt(saldo)}</div>
             )}
           </div>
         </div>
       </div>
 
-      {/* PRODUCTS TABLE */}
-      <table className="rec-table">
-        <thead>
-          <tr>
-            <th>Concepto / Producto</th>
-            <th style={{ textAlign: 'center', width: 80 }}>Cantidad</th>
-            <th style={{ textAlign: 'right', width: 100 }}>Precio</th>
-            <th style={{ textAlign: 'right', width: 120 }}>Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(formData.productos || []).map((line, i) => (
-            <tr key={i}>
-              <td>{line.nombre}</td>
-              <td style={{ textAlign: 'center' }}>{line.cantidad}</td>
-              <td style={{ textAlign: 'right' }}>{fmt(line.precio)}</td>
-              <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(line.cantidad * line.precio)}</td>
+      {/* ── ITEMS TABLE ── */}
+      <div className="qd-table-wrap">
+        <table className="qd-table">
+          <thead>
+            <tr>
+              <th className="qd-th qd-th-no">No.</th>
+              <th className="qd-th qd-th-desc">Concepto / Producto</th>
+              <th className="qd-th qd-th-price">Precio</th>
+              <th className="qd-th qd-th-qty">Cant.</th>
+              <th className="qd-th qd-th-total">Total</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(formData.productos || []).map((line, i) => (
+              <tr key={i} className={i % 2 === 1 ? 'qd-tr-alt' : ''}>
+                <td className="qd-td qd-td-no">{String(i + 1).padStart(2, '0')}</td>
+                <td className="qd-td qd-td-desc">{line.nombre || '—'}</td>
+                <td className="qd-td qd-td-price">{fmt(line.precio)}</td>
+                <td className="qd-td qd-td-qty">{line.cantidad}</td>
+                <td className="qd-td qd-td-total">{fmt(Number(line.cantidad) * Number(line.precio))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      {/* TOTALS */}
-      <div className="rec-totals-block">
-        <div className="rec-total-row">
-          <span>Total del Pedido:</span>
-          <span>{fmt(total)}</span>
+      {/* ── BOTTOM: Notes + Totals ── */}
+      <div className="qd-bottom-row">
+        {/* Left: Notes */}
+        <div className="qd-bottom-left">
+          {formData.notas && (
+            <div className="qd-notes-block">
+              <div className="qd-terms-title">Notas:</div>
+              <p className="qd-terms-text">{formData.notas}</p>
+            </div>
+          )}
         </div>
-        <div className="rec-total-row" style={{ color: 'green', fontWeight: 'bold' }}>
-          <span>Monto Pagado:</span>
-          <span>{fmt(anticipo)}</span>
-        </div>
-        <div className="rec-total-row grand-total">
-          <span>Saldo Restante:</span>
-          <span style={{ color: saldo > 0 ? 'orange' : 'green' }}>{fmt(saldo)}</span>
+
+        {/* Right: Totals Box */}
+        <div className="qd-totals-box">
+          <div className="qd-total-row">
+            <span>Total del Pedido:</span>
+            <span>{fmt(total)}</span>
+          </div>
+          <div className="qd-total-row" style={{ color: '#16a34a', fontWeight: 'bold' }}>
+            <span>Monto Pagado:</span>
+            <span>{fmt(anticipo)}</span>
+          </div>
+          <div className="qd-grand-total-row">
+            <span>Saldo Restante:</span>
+            <span style={{ color: saldo > 0 ? '#d97706' : '#16a34a' }}>{fmt(saldo)}</span>
+          </div>
         </div>
       </div>
 
-      {/* FOOTER */}
-      <div className="rec-footer">
-        {config.mensajePie || '¡Gracias por su preferencia!'} — Generado por PrintMeiker
+      {/* ── FOOTER ── */}
+      <div className="qd-footer">
+        <span>{config.mensajePie || '¡Gracias por su preferencia!'}</span>
       </div>
     </div>
   );
