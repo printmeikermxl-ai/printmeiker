@@ -115,6 +115,11 @@ const AppLayout = () => {
   // Función para cargar datos de la nube y actualizar el store
   const reloadFromCloud = useCallback(async () => {
     if (!user) return;
+    // Si hay cambios locales pendientes de guardar en la nube, evitamos sobrescribirlos
+    if (window.__cloudSaveTimer) {
+      console.log('Recarga de nube pospuesta: cambios locales pendientes de subir.');
+      return;
+    }
     const cloudData = await loadFromCloud(user.id);
     if (cloudData) {
       if (cloudData.pedidos)       localStorage.setItem('sep_pedidos',       JSON.stringify(cloudData.pedidos));
@@ -207,9 +212,9 @@ const AppLayout = () => {
       if (window.__isReloadingFromCloud) return;
       // Usamos un debounce para no saturar la API
       clearTimeout(window.__cloudSaveTimer);
-      window.__cloudSaveTimer = setTimeout(() => {
+      window.__cloudSaveTimer = setTimeout(async () => {
         const s = store.getState();
-        saveToCloud(user.id, {
+        await saveToCloud(user.id, {
           pedidos:       s.pedidos,
           cotizaciones:  s.cotizaciones,
           finanzas:      s.finanzas,
@@ -221,11 +226,13 @@ const AppLayout = () => {
           notas:         s.notas,
           categoriasNotas: s.categoriasNotas,
         });
+        window.__cloudSaveTimer = null;
       }, 2000);
     });
     return () => {
       unsub();
       clearTimeout(window.__cloudSaveTimer);
+      window.__cloudSaveTimer = null;
     };
   }, [user]);
 
