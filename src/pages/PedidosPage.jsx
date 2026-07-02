@@ -517,52 +517,6 @@ export const PedidosPage = () => {
     return { container, clone };
   };
 
-  const handleDownloadRemision = async () => {
-    const element = document.getElementById('printable-remision-doc');
-    if (!element) return;
-    let container;
-    try {
-      const result = await prepareCapture(element);
-      container = result.container;
-      const clone = result.clone;
-      const canvas = await html2canvas(clone, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        height: clone.scrollHeight,
-        windowHeight: clone.scrollHeight,
-      });
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = 794;
-      const imgHeight = clone.scrollHeight;
-      const ratio = pdfWidth / imgWidth;
-      const scaledHeight = imgHeight * ratio;
-
-      let heightLeft = scaledHeight;
-      let position = 0;
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledHeight);
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 1) {
-        position = heightLeft - scaledHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledHeight);
-        heightLeft -= pdfHeight;
-      }
-      pdf.save(`Nota_Remision_${editId || 'documento'}.pdf`);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Hubo un error al generar la Nota de Remisión.');
-    } finally {
-      if (container && document.body.contains(container)) document.body.removeChild(container);
-    }
-  };
-
   const handleDownloadRecibo = async () => {
     const element = document.getElementById('printable-recibo-doc');
     if (!element) return;
@@ -604,6 +558,36 @@ export const PedidosPage = () => {
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Hubo un error al generar el Recibo de Pago.');
+    } finally {
+      if (container && document.body.contains(container)) document.body.removeChild(container);
+    }
+  };
+
+  const handleDownloadReciboImage = async () => {
+    const element = document.getElementById('printable-recibo-doc');
+    if (!element) return;
+    let container;
+    try {
+      const result = await prepareCapture(element);
+      container = result.container;
+      const clone = result.clone;
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        height: clone.scrollHeight,
+        windowHeight: clone.scrollHeight,
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `Recibo_Pago_${editId || 'documento'}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error('Error generating image:', error);
+      alert('Hubo un error al descargar la imagen.');
     } finally {
       if (container && document.body.contains(container)) document.body.removeChild(container);
     }
@@ -1165,8 +1149,8 @@ export const PedidosPage = () => {
             <div className="modal-footer" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn btn-ghost" onClick={() => setModal(null)}>Cerrar</button>
               <button className="btn btn-primary" onClick={() => openEdit({ ...form, id: editId })} style={{ marginRight: 'auto' }}>✏️ Editar</button>
-              <button className="btn btn-secondary" onClick={handleDownloadRemision}>📄 Nota de Remisión</button>
-              <button className="btn btn-secondary" onClick={handleDownloadRecibo}>🧾 Recibo de Pago</button>
+              <button className="btn btn-secondary" onClick={handleDownloadReciboImage}>🖼️ Guardar Recibo Imagen</button>
+              <button className="btn btn-secondary" onClick={handleDownloadRecibo}>📥 Descargar Recibo PDF</button>
             </div>
           </div>
         </div>
@@ -1469,13 +1453,6 @@ export const PedidosPage = () => {
 
       {/* Documentos ocultos para la captura PDF */}
       <div style={{ position: 'absolute', left: -9999, top: -9999, pointerEvents: 'none', opacity: 0 }}>
-        <RemisionDocument
-          formData={form}
-          pedidoId={editId}
-          config={config}
-          canalesVenta={canalesVenta}
-          negocioConfig={negocioConfig}
-        />
         <ReciboDocument
           formData={form}
           pedidoId={editId}
@@ -1483,122 +1460,6 @@ export const PedidosPage = () => {
           canalesVenta={canalesVenta}
           negocioConfig={negocioConfig}
         />
-      </div>
-    </div>
-  );
-};
-
-// ── Componente Imprimible: Nota de Remisión ──────────────────────────────────
-const RemisionDocument = ({ formData, pedidoId, config, canalesVenta, negocioConfig }) => {
-  const negocioNombre = config.negocio || 'Mi Negocio';
-  const negocioInicial = (config.propietario || negocioNombre || 'U')[0].toUpperCase();
-  const subtotal = (formData.productos || []).reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0);
-  const total = subtotal + Number(formData.ajuste || 0);
-
-  return (
-    <div className="rem-doc" id="printable-remision-doc">
-      {/* HEADER */}
-      <div className="rem-header">
-        <div className="rem-header-left">
-          {config.profilePhoto ? (
-            <img src={config.profilePhoto} alt="Logo" className="rem-logo-img" />
-          ) : (
-            <div className="rem-logo-placeholder">{negocioInicial}</div>
-          )}
-          <div>
-            <div className="rem-company-name">{negocioNombre}</div>
-            {config.telefono && <div className="rem-company-detail">📞 {config.telefono}</div>}
-            {config.email && <div className="rem-company-detail">✉️ {config.email}</div>}
-          </div>
-        </div>
-        <div>
-          <div className="rem-doc-title">Nota de Remisión</div>
-          <div className="rem-meta-grid">
-            <span className="rem-meta-label">Pedido No.:</span>
-            <span className="rem-meta-value">{pedidoId}</span>
-            <span className="rem-meta-label">Fecha:</span>
-            <span className="rem-meta-value">{formData.fecha}</span>
-            {formData.fechaEntrega && (
-              <>
-                <span className="rem-meta-label">Fecha Entrega:</span>
-                <span className="rem-meta-value">{formData.fechaEntrega}</span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="rem-accent-bar" />
-
-      {/* CLIENT INFO */}
-      <div className="rem-info-row">
-        <div className="rem-info-block">
-          <div className="rem-info-label">Entregar a:</div>
-          <div className="rem-client-name">{formData.cliente || 'Público en general'}</div>
-          {formData.telefono && <div className="rem-client-detail">📞 {formData.telefono}</div>}
-          {formData.email && <div className="rem-client-detail">✉️ {formData.email}</div>}
-        </div>
-        <div className="rem-info-block">
-          <div className="rem-info-label">Términos de Entrega:</div>
-          <div className="rem-client-detail" style={{ whiteSpace: 'pre-line' }}>
-            {formData.canal === 'canal-4' ? (negocioConfig?.terminosLocales || 'Entrega local.') : (negocioConfig?.terminosNacionales || 'Envío nacional.')}
-          </div>
-        </div>
-      </div>
-
-      {/* PRODUCTS TABLE */}
-      <table className="rem-table">
-        <thead>
-          <tr>
-            <th>Descripción del Producto / Servicio</th>
-            <th style={{ textAlign: 'center', width: 80 }}>Cantidad</th>
-            <th style={{ textAlign: 'right', width: 100 }}>Precio</th>
-            <th style={{ textAlign: 'right', width: 120 }}>Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(formData.productos || []).map((line, i) => (
-            <tr key={i}>
-              <td>{line.nombre}</td>
-              <td style={{ textAlign: 'center' }}>{line.cantidad}</td>
-              <td style={{ textAlign: 'right' }}>{fmt(line.precio)}</td>
-              <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(line.cantidad * line.precio)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* TOTALS */}
-      <div className="rem-totals-block">
-        <div className="rem-total-row">
-          <span>Subtotal:</span>
-          <span>{fmt(subtotal)}</span>
-        </div>
-        {Number(formData.ajuste || 0) !== 0 && (
-          <div className="rem-total-row">
-            <span>Ajustes / IVA / Cargos:</span>
-            <span>{fmt(formData.ajuste)}</span>
-          </div>
-        )}
-        <div className="rem-total-row grand-total">
-          <span>Total:</span>
-          <span>{fmt(total)}</span>
-        </div>
-      </div>
-
-      {/* SIGNATURES */}
-      <div className="rem-signatures">
-        <div className="rem-sig-box">
-          <div className="rem-sig-label">Entregado por (Taller)</div>
-        </div>
-        <div className="rem-sig-box">
-          <div className="rem-sig-label">Firma de Recibido (Cliente)</div>
-        </div>
-      </div>
-
-      {/* FOOTER */}
-      <div className="rem-footer">
-        {config.mensajePie || '¡Gracias por su preferencia!'} — Generado por PrintMeiker
       </div>
     </div>
   );
@@ -1701,16 +1562,6 @@ const ReciboDocument = ({ formData, pedidoId, config, canalesVenta, negocioConfi
         <div className="rec-total-row grand-total">
           <span>Saldo Restante:</span>
           <span style={{ color: saldo > 0 ? 'orange' : 'green' }}>{fmt(saldo)}</span>
-        </div>
-      </div>
-
-      {/* SIGNATURES */}
-      <div className="rec-signatures">
-        <div className="rec-sig-box">
-          <div className="rec-sig-label">Recibido por (Cajero / Taller)</div>
-        </div>
-        <div className="rec-sig-box">
-          <div className="rec-sig-label">Firma del Cliente</div>
         </div>
       </div>
 
