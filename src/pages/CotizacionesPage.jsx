@@ -35,6 +35,7 @@ const emptyForm = () => ({
   aplicarIva: false,
   ivaPct: 16,
   mostrarFotos: false,
+  canal: '',
 });
 
 // Helper — suma todos los extras
@@ -42,6 +43,29 @@ const sumExtras = (extras = []) =>
   extras.reduce((s, e) => s + Number(e.monto || 0), 0);
 
 const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+const CanalBadge = ({ canalId, canalesVenta = [] }) => {
+  const canal = (canalesVenta || []).find(c => c.id === canalId || c.nombre === canalId);
+  if (canal) {
+    return (
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '3px 10px',
+        borderRadius: 99,
+        fontSize: 12,
+        fontWeight: 600,
+        background: canal.color,
+        color: canal.text,
+        whiteSpace: 'nowrap',
+      }}>
+        {canal.emoji || '🌐'} {canal.nombre}
+      </span>
+    );
+  }
+  return <span style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>—</span>;
+};
 
 // Helper to get CSS variable value as hex-like string for inline use
 const getPrimaryColor = () => {
@@ -54,7 +78,7 @@ const getPrimaryColor = () => {
 };
 
 export const CotizacionesPage = () => {
-  const { cotizaciones, productos: catalogo, config, negocioConfig, clientes, etiquetasPersonalizadas } = useStore();
+  const { cotizaciones, productos: catalogo, config, negocioConfig, clientes, etiquetasPersonalizadas, canalesVenta } = useStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
@@ -133,6 +157,7 @@ export const CotizacionesPage = () => {
         cotizacionId: cot.id,
         costoExtra: cot.costoExtra || 0,
         metodoPago: aceptarForm.pagoHoy ? aceptarForm.metodoPago : '',
+        canal: cot.canal || 'canal-1',
       });
       // 3. Registrar en finanzas si el usuario lo quiere
       if (aceptarForm.pagoHoy && aceptarForm.registrarFinanzas && montoAnticipo > 0) {
@@ -229,7 +254,8 @@ export const CotizacionesPage = () => {
 
   const openCreate = () => {
     const defaultTerminos = negocioConfig?.terminosLocales || '';
-    setForm({ ...emptyForm(), terminosCondiciones: defaultTerminos });
+    const defaultCanal = (canalesVenta && canalesVenta[0]?.id) || 'canal-1';
+    setForm({ ...emptyForm(), terminosCondiciones: defaultTerminos, canal: defaultCanal });
     setEditId(null);
     setModal('create');
   };
@@ -446,6 +472,17 @@ export const CotizacionesPage = () => {
                 <span className="qd-meta-label">Fecha de entrega:</span>
                 <span className="qd-meta-value">{formData.fechaEntrega}</span>
               </>}
+              {formData.canal && (() => {
+                const canalObj = (canalesVenta || []).find(c => c.id === formData.canal || c.nombre === formData.canal);
+                return canalObj ? (
+                  <>
+                    <span className="qd-meta-label">Origen:</span>
+                    <span className="qd-meta-value" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {canalObj.emoji || '🌐'} {canalObj.nombre}
+                    </span>
+                  </>
+                ) : null;
+              })()}
             </div>
           </div>
         </div>
@@ -632,6 +669,7 @@ export const CotizacionesPage = () => {
                 <th>Cliente</th>
                 <th>Fecha</th>
                 <th>Válida hasta</th>
+                <th>Origen</th>
                 <th>Estado</th>
                 <th>Total</th>
                 <th>Acciones</th>
@@ -647,6 +685,9 @@ export const CotizacionesPage = () => {
                   </td>
                   <td style={{ fontSize: 13 }}>{c.fecha}</td>
                   <td style={{ fontSize: 13 }}>{c.validez || '—'}</td>
+                  <td>
+                    <CanalBadge canalId={c.canal} canalesVenta={canalesVenta} />
+                  </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <StatusBadge status={c.estado} />
@@ -903,6 +944,17 @@ export const CotizacionesPage = () => {
                     </label>
                     <input className="form-input" type="date" value={form.fechaEntrega || ''} onChange={e => set('fechaEntrega', e.target.value)} />
                     <span className="field-hint">Deja vacío si no hay fecha de entrega definida</span>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Origen / Canal de Venta
+                      <FieldHelp text="¿Cómo llegó este cliente a ti? (WhatsApp, Instagram, etc.). Se copiará automáticamente al convertirse en pedido." />
+                    </label>
+                    <select className="form-select" value={form.canal || ''} onChange={e => set('canal', e.target.value)}>
+                      {(canalesVenta || []).map(c => (
+                        <option key={c.id} value={c.id}>{c.emoji || '🌐'} {c.nombre}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
