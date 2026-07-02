@@ -38,7 +38,8 @@ export const CalculadoraFlotante = () => {
       else if (k === '-') handleBtn('−');
       else if (k === '*') handleBtn('×');
       else if (k === '/') { e.preventDefault(); handleBtn('÷'); }
-      else if (k === 'Enter' || k === '=') handleBtn('=');
+      else if (k === 'Enter') { e.preventDefault(); handleBtn('='); }
+      else if (k === '=') handleBtn('=');
       else if (k === 'Backspace') handleBtn('⌫');
       else if (k === 'Escape') setOpen(false);
       else if (k === 'c' || k === 'C') handleBtn('C');
@@ -129,6 +130,7 @@ export const CalculadoraFlotante = () => {
                   key={`${ri}-${ci}`}
                   className={`calc-btn${isOp(btn) ? ' calc-btn-op' : ''}${isSpecial(btn) ? ' calc-btn-special' : ''}${btn === '=' ? ' calc-btn-eq' : ''}${btn === '0' && ci === 0 ? ' calc-btn-zero' : ''}`}
                   onClick={() => handleBtn(btn)}
+                  onMouseUp={(e) => e.currentTarget.blur()}
                 >
                   {btn}
                 </button>
