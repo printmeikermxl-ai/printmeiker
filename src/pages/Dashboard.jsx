@@ -40,7 +40,12 @@ export const Dashboard = () => {
   });
 
   const recentPedidos = [...pedidos]
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    .sort((a, b) => {
+      if (a.fecha !== b.fecha) {
+        return new Date(b.fecha) - new Date(a.fecha);
+      }
+      return pedidos.indexOf(b) - pedidos.indexOf(a);
+    })
     .slice(0, 6);
 
   // Greeting logic

@@ -448,7 +448,14 @@ export const PedidosPage = () => {
   const [anticipoMontoEfectivo, setAnticipóMontoEfectivo] = useState('');
   const [anticipoMontoTarjeta, setAnticipóMontoTarjeta] = useState('');
 
-  const filtered = pedidos.filter(p => {
+  const sortedPedidos = [...pedidos].sort((a, b) => {
+    if (a.fecha !== b.fecha) {
+      return b.fecha.localeCompare(a.fecha);
+    }
+    return pedidos.indexOf(b) - pedidos.indexOf(a);
+  });
+
+  const filtered = sortedPedidos.filter(p => {
     const matchSearch = p.cliente.toLowerCase().includes(search.toLowerCase()) || p.id.toLowerCase().includes(search.toLowerCase());
     const matchEstado = filtroEstado === 'todos' || p.estado === filtroEstado;
     const matchCanal = filtroCanal === 'todos' || p.canal === filtroCanal;

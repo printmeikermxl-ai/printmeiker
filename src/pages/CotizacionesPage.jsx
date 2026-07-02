@@ -227,7 +227,9 @@ export const CotizacionesPage = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const filtered = cotizaciones.filter(c => {
+  const sortedCotizaciones = [...cotizaciones].sort((a, b) => b.id.localeCompare(a.id));
+
+  const filtered = sortedCotizaciones.filter(c => {
     const matchSearch = c.cliente.toLowerCase().includes(search.toLowerCase()) || c.id.toLowerCase().includes(search.toLowerCase());
     const matchEstado = filtroEstado === 'todos' || c.estado === filtroEstado;
     return matchSearch && matchEstado;
