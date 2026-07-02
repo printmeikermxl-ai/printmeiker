@@ -6474,5 +6474,229 @@ body {
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   📄 PLANTILLAS DE PEDIDOS (REMISIONES Y RECIBOS) — DISEÑO PREMIUM
+   ───────────────────────────────────────────────────────────────────────────── */
+.rem-doc, .rec-doc {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #1e293b;
+  background: #ffffff;
+  padding: 40px;
+  box-sizing: border-box;
+  width: 794px; /* A4 width standard */
+  min-height: 1123px; /* A4 height standard */
+  display: flex;
+  flex-direction: column;
+  border: none;
+}
+
+.rem-header, .rec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.rem-header-left, .rec-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rem-logo-block, .rec-logo-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.rem-logo-placeholder, .rec-logo-placeholder {
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+
+.rem-logo-img, .rec-logo-img {
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid hsl(var(--border));
+}
+
+.rem-company-name, .rec-company-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.rem-company-detail, .rec-company-detail {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.rem-doc-title, .rec-doc-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: hsl(var(--primary));
+  text-align: right;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.rem-meta-grid, .rec-meta-grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  justify-content: end;
+}
+
+.rem-meta-label, .rec-meta-label {
+  color: #64748b;
+  font-weight: 600;
+  text-align: right;
+}
+
+.rem-meta-value, .rec-meta-value {
+  color: #0f172a;
+  font-weight: 700;
+  text-align: left;
+}
+
+.rem-accent-bar, .rec-accent-bar {
+  height: 4px;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+  border-radius: 2px;
+  margin-bottom: 24px;
+}
+
+.rem-info-row, .rec-info-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin-bottom: 28px;
+}
+
+.rem-info-block, .rec-info-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.rem-info-label, .rec-info-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+  border-bottom: 1.5px solid #e2e8f0;
+  padding-bottom: 3px;
+}
+
+.rem-client-name, .rec-client-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.rem-client-detail, .rec-client-detail {
+  font-size: 11px;
+  color: #475569;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.rem-table, .rec-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+
+.rem-table th, .rec-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.rem-table td, .rec-table td {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.rem-table tr:last-child td, .rec-table tr:last-child td {
+  border-bottom: 1.5px solid #cbd5e1;
+}
+
+.rem-totals-block, .rec-totals-block {
+  align-self: flex-end;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 40px;
+}
+
+.rem-total-row, .rec-total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #475569;
+}
+
+.rem-total-row.grand-total, .rec-total-row.grand-total {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  border-top: 1.5px solid #e2e8f0;
+  padding-top: 8px;
+}
+
+.rem-signatures, .rec-signatures {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  padding: 0 40px;
+  margin-bottom: 30px;
+}
+
+.rem-sig-box, .rec-sig-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-top: 1.5px solid #cbd5e1;
+  padding-top: 10px;
+}
+
+.rem-sig-label, .rec-sig-label {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.rem-footer, .rec-footer {
+  text-align: center;
+  font-size: 11px;
+  color: #94a3b8;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 14px;
+}
+
 
 

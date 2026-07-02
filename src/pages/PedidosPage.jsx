@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useStore, store } from '../store/useStore';
 import { StatusBadge } from '../components/StatusBadge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProductLinesInput } from '../components/ProductLinesInput';
 import { ComprobantesSection } from '../components/ComprobantesSection';
 import { FieldHelp } from '../components/FieldHelp';
-import { KanbanPedidos, ETIQUETAS_CONFIG } from '../components/KanbanPedidos';
+import { KanbanPedidos } from '../components/KanbanPedidos';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 const METODOS_PAGO_PED = [
   { value: 'efectivo',      label: 'Efectivo',                  icon: '💵', color: '#16a34a', bg: '#f0fdf4' },
@@ -426,7 +428,7 @@ const ModalEtiquetasPedidos = ({ etiquetasPedidos = [], onClose }) => {
 };
 
 export const PedidosPage = () => {
-  const { pedidos, productos: catalogo, config, canalesVenta, etiquetasPedidos } = useStore();
+  const { pedidos, productos: catalogo, config, canalesVenta, etiquetasPedidos, negocioConfig } = useStore();
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [filtroCanal, setFiltroCanal] = useState('todos');
@@ -490,6 +492,121 @@ export const PedidosPage = () => {
     setForm({ canal: defaultCanal, ...p, ajuste });
     setEditId(p.id);
     setModal('view');
+  };
+
+  // ── Helper: esperar que todas las imágenes del elemento carguen ──────────
+  const waitForImages = (el) => {
+    const imgs = Array.from(el.querySelectorAll('img'));
+    if (imgs.length === 0) return Promise.resolve();
+    return Promise.all(imgs.map(img =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise(res => { img.onload = res; img.onerror = res; })
+    ));
+  };
+
+  // ── Helper: preparar elemento para captura ──────────────────────────────
+  const prepareCapture = async (element) => {
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;overflow:visible;background:#fff;z-index:-1;';
+    const clone = element.cloneNode(true);
+    clone.style.cssText = 'width:794px;margin:0;padding:40px;box-sizing:border-box;border:none;box-shadow:none;min-height:1123px;';
+    container.appendChild(clone);
+    document.body.appendChild(container);
+    await waitForImages(clone);
+    return { container, clone };
+  };
+
+  const handleDownloadRemision = async () => {
+    const element = document.getElementById('printable-remision-doc');
+    if (!element) return;
+    let container;
+    try {
+      const result = await prepareCapture(element);
+      container = result.container;
+      const clone = result.clone;
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        height: clone.scrollHeight,
+        windowHeight: clone.scrollHeight,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = 794;
+      const imgHeight = clone.scrollHeight;
+      const ratio = pdfWidth / imgWidth;
+      const scaledHeight = imgHeight * ratio;
+
+      let heightLeft = scaledHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft > 1) {
+        position = heightLeft - scaledHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledHeight);
+        heightLeft -= pdfHeight;
+      }
+      pdf.save(`Nota_Remision_${editId || 'documento'}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Hubo un error al generar la Nota de Remisión.');
+    } finally {
+      if (container && document.body.contains(container)) document.body.removeChild(container);
+    }
+  };
+
+  const handleDownloadRecibo = async () => {
+    const element = document.getElementById('printable-recibo-doc');
+    if (!element) return;
+    let container;
+    try {
+      const result = await prepareCapture(element);
+      container = result.container;
+      const clone = result.clone;
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        height: clone.scrollHeight,
+        windowHeight: clone.scrollHeight,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = 794;
+      const imgHeight = clone.scrollHeight;
+      const ratio = pdfWidth / imgWidth;
+      const scaledHeight = imgHeight * ratio;
+
+      let heightLeft = scaledHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft > 1) {
+        position = heightLeft - scaledHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledHeight);
+        heightLeft -= pdfHeight;
+      }
+      pdf.save(`Recibo_Pago_${editId || 'documento'}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Hubo un error al generar el Recibo de Pago.');
+    } finally {
+      if (container && document.body.contains(container)) document.body.removeChild(container);
+    }
   };
 
   const handleSave = (e) => {
@@ -1045,9 +1162,11 @@ export const PedidosPage = () => {
                 onEliminar={(cId) => store.deleteComprobantePedido(editId, cId)}
               />
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn btn-ghost" onClick={() => setModal(null)}>Cerrar</button>
-              <button className="btn btn-primary" onClick={() => openEdit({ ...form, id: editId })}>✏️ Editar</button>
+              <button className="btn btn-primary" onClick={() => openEdit({ ...form, id: editId })} style={{ marginRight: 'auto' }}>✏️ Editar</button>
+              <button className="btn btn-secondary" onClick={handleDownloadRemision}>📄 Nota de Remisión</button>
+              <button className="btn btn-secondary" onClick={handleDownloadRecibo}>🧾 Recibo de Pago</button>
             </div>
           </div>
         </div>
@@ -1347,6 +1466,258 @@ export const PedidosPage = () => {
           onClose={() => setModal(null)}
         />
       )}
+
+      {/* Documentos ocultos para la captura PDF */}
+      <div style={{ position: 'absolute', left: -9999, top: -9999, pointerEvents: 'none', opacity: 0 }}>
+        <RemisionDocument
+          formData={form}
+          pedidoId={editId}
+          config={config}
+          canalesVenta={canalesVenta}
+          negocioConfig={negocioConfig}
+        />
+        <ReciboDocument
+          formData={form}
+          pedidoId={editId}
+          config={config}
+          canalesVenta={canalesVenta}
+          negocioConfig={negocioConfig}
+        />
+      </div>
+    </div>
+  );
+};
+
+// ── Componente Imprimible: Nota de Remisión ──────────────────────────────────
+const RemisionDocument = ({ formData, pedidoId, config, canalesVenta, negocioConfig }) => {
+  const negocioNombre = config.negocio || 'Mi Negocio';
+  const negocioInicial = (config.propietario || negocioNombre || 'U')[0].toUpperCase();
+  const subtotal = (formData.productos || []).reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0);
+  const total = subtotal + Number(formData.ajuste || 0);
+
+  return (
+    <div className="rem-doc" id="printable-remision-doc">
+      {/* HEADER */}
+      <div className="rem-header">
+        <div className="rem-header-left">
+          {config.profilePhoto ? (
+            <img src={config.profilePhoto} alt="Logo" className="rem-logo-img" />
+          ) : (
+            <div className="rem-logo-placeholder">{negocioInicial}</div>
+          )}
+          <div>
+            <div className="rem-company-name">{negocioNombre}</div>
+            {config.telefono && <div className="rem-company-detail">📞 {config.telefono}</div>}
+            {config.email && <div className="rem-company-detail">✉️ {config.email}</div>}
+          </div>
+        </div>
+        <div>
+          <div className="rem-doc-title">Nota de Remisión</div>
+          <div className="rem-meta-grid">
+            <span className="rem-meta-label">Pedido No.:</span>
+            <span className="rem-meta-value">{pedidoId}</span>
+            <span className="rem-meta-label">Fecha:</span>
+            <span className="rem-meta-value">{formData.fecha}</span>
+            {formData.fechaEntrega && (
+              <>
+                <span className="rem-meta-label">Fecha Entrega:</span>
+                <span className="rem-meta-value">{formData.fechaEntrega}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="rem-accent-bar" />
+
+      {/* CLIENT INFO */}
+      <div className="rem-info-row">
+        <div className="rem-info-block">
+          <div className="rem-info-label">Entregar a:</div>
+          <div className="rem-client-name">{formData.cliente || 'Público en general'}</div>
+          {formData.telefono && <div className="rem-client-detail">📞 {formData.telefono}</div>}
+          {formData.email && <div className="rem-client-detail">✉️ {formData.email}</div>}
+        </div>
+        <div className="rem-info-block">
+          <div className="rem-info-label">Términos de Entrega:</div>
+          <div className="rem-client-detail" style={{ whiteSpace: 'pre-line' }}>
+            {formData.canal === 'canal-4' ? (negocioConfig?.terminosLocales || 'Entrega local.') : (negocioConfig?.terminosNacionales || 'Envío nacional.')}
+          </div>
+        </div>
+      </div>
+
+      {/* PRODUCTS TABLE */}
+      <table className="rem-table">
+        <thead>
+          <tr>
+            <th>Descripción del Producto / Servicio</th>
+            <th style={{ textAlign: 'center', width: 80 }}>Cantidad</th>
+            <th style={{ textAlign: 'right', width: 100 }}>Precio</th>
+            <th style={{ textAlign: 'right', width: 120 }}>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(formData.productos || []).map((line, i) => (
+            <tr key={i}>
+              <td>{line.nombre}</td>
+              <td style={{ textAlign: 'center' }}>{line.cantidad}</td>
+              <td style={{ textAlign: 'right' }}>{fmt(line.precio)}</td>
+              <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(line.cantidad * line.precio)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* TOTALS */}
+      <div className="rem-totals-block">
+        <div className="rem-total-row">
+          <span>Subtotal:</span>
+          <span>{fmt(subtotal)}</span>
+        </div>
+        {Number(formData.ajuste || 0) !== 0 && (
+          <div className="rem-total-row">
+            <span>Ajustes / IVA / Cargos:</span>
+            <span>{fmt(formData.ajuste)}</span>
+          </div>
+        )}
+        <div className="rem-total-row grand-total">
+          <span>Total:</span>
+          <span>{fmt(total)}</span>
+        </div>
+      </div>
+
+      {/* SIGNATURES */}
+      <div className="rem-signatures">
+        <div className="rem-sig-box">
+          <div className="rem-sig-label">Entregado por (Taller)</div>
+        </div>
+        <div className="rem-sig-box">
+          <div className="rem-sig-label">Firma de Recibido (Cliente)</div>
+        </div>
+      </div>
+
+      {/* FOOTER */}
+      <div className="rem-footer">
+        {config.mensajePie || '¡Gracias por su preferencia!'} — Generado por PrintMeiker
+      </div>
+    </div>
+  );
+};
+
+// ── Componente Imprimible: Recibo de Pago ─────────────────────────────────────
+const ReciboDocument = ({ formData, pedidoId, config, canalesVenta, negocioConfig }) => {
+  const negocioNombre = config.negocio || 'Mi Negocio';
+  const negocioInicial = (config.propietario || negocioNombre || 'U')[0].toUpperCase();
+  const subtotal = (formData.productos || []).reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0);
+  const total = subtotal + Number(formData.ajuste || 0);
+  const anticipo = Number(formData.anticipo || 0);
+  const saldo = total - anticipo;
+
+  return (
+    <div className="rec-doc" id="printable-recibo-doc">
+      {/* HEADER */}
+      <div className="rec-header">
+        <div className="rec-header-left">
+          {config.profilePhoto ? (
+            <img src={config.profilePhoto} alt="Logo" className="rec-logo-img" />
+          ) : (
+            <div className="rec-logo-placeholder">{negocioInicial}</div>
+          )}
+          <div>
+            <div className="rec-company-name">{negocioNombre}</div>
+            {config.telefono && <div className="rec-company-detail">📞 {config.telefono}</div>}
+            {config.email && <div className="rec-company-detail">✉️ {config.email}</div>}
+          </div>
+        </div>
+        <div>
+          <div className="rec-doc-title">Recibo de Pago</div>
+          <div className="rec-meta-grid">
+            <span className="rec-meta-label">Pedido No.:</span>
+            <span className="rec-meta-value">{pedidoId}</span>
+            <span className="rec-meta-label">Fecha Emisión:</span>
+            <span className="rec-meta-value">{new Date().toISOString().split('T')[0]}</span>
+            <span className="rec-meta-label">Fecha Pedido:</span>
+            <span className="rec-meta-value">{formData.fecha}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="rec-accent-bar" />
+
+      {/* CLIENT INFO */}
+      <div className="rec-info-row">
+        <div className="rec-info-block">
+          <div className="rec-info-label">Recibido de:</div>
+          <div className="rec-client-name">{formData.cliente || 'Público en general'}</div>
+          {formData.telefono && <div className="rec-client-detail">📞 {formData.telefono}</div>}
+          {formData.email && <div className="rec-client-detail">✉️ {formData.email}</div>}
+        </div>
+        <div className="rec-info-block">
+          <div className="rec-info-label">Detalles del Pago:</div>
+          <div className="rec-client-detail">
+            <div><strong>Método de pago:</strong> {formData.metodoPago ? formData.metodoPago.toUpperCase() : 'EFECTIVO'}</div>
+            {anticipo > 0 && <div><strong>Anticipo registrado:</strong> {fmt(anticipo)}</div>}
+            {saldo <= 0 ? (
+              <div style={{ color: 'green', fontWeight: 'bold', marginTop: 4 }}>🎉 PEDIDO TOTALMENTE LIQUIDADO</div>
+            ) : (
+              <div style={{ color: 'orange', fontWeight: 'bold', marginTop: 4 }}>⚠️ SALDO RESTANTE A LIQUIDAR: {fmt(saldo)}</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* PRODUCTS TABLE */}
+      <table className="rec-table">
+        <thead>
+          <tr>
+            <th>Concepto / Producto</th>
+            <th style={{ textAlign: 'center', width: 80 }}>Cantidad</th>
+            <th style={{ textAlign: 'right', width: 100 }}>Precio</th>
+            <th style={{ textAlign: 'right', width: 120 }}>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(formData.productos || []).map((line, i) => (
+            <tr key={i}>
+              <td>{line.nombre}</td>
+              <td style={{ textAlign: 'center' }}>{line.cantidad}</td>
+              <td style={{ textAlign: 'right' }}>{fmt(line.precio)}</td>
+              <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(line.cantidad * line.precio)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* TOTALS */}
+      <div className="rec-totals-block">
+        <div className="rec-total-row">
+          <span>Total del Pedido:</span>
+          <span>{fmt(total)}</span>
+        </div>
+        <div className="rec-total-row" style={{ color: 'green', fontWeight: 'bold' }}>
+          <span>Monto Pagado:</span>
+          <span>{fmt(anticipo)}</span>
+        </div>
+        <div className="rec-total-row grand-total">
+          <span>Saldo Restante:</span>
+          <span style={{ color: saldo > 0 ? 'orange' : 'green' }}>{fmt(saldo)}</span>
+        </div>
+      </div>
+
+      {/* SIGNATURES */}
+      <div className="rec-signatures">
+        <div className="rec-sig-box">
+          <div className="rec-sig-label">Recibido por (Cajero / Taller)</div>
+        </div>
+        <div className="rec-sig-box">
+          <div className="rec-sig-label">Firma del Cliente</div>
+        </div>
+      </div>
+
+      {/* FOOTER */}
+      <div className="rec-footer">
+        {config.mensajePie || '¡Gracias por su preferencia!'} — Generado por PrintMeiker
+      </div>
     </div>
   );
 };
