@@ -16,6 +16,7 @@ import { useStore } from './store/useStore';
 import { applyTheme } from './store/useStore';
 import { loadFromCloud, saveToCloud } from './store/useStore';
 import { store } from './store/useStore';
+import { supabase } from './lib/supabase';
 import { GlobalSearch } from './components/GlobalSearch';
 import { NotificacionesPanel, NotifBell } from './components/NotificacionesPanel';
 import { CalculadoraFlotante } from './components/CalculadoraFlotante';
@@ -72,9 +73,15 @@ const AppLayout = () => {
   );
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [topbarPhotoErr, setTopbarPhotoErr] = useState(false);
   const location = useLocation();
   const { themeColor, config } = useStore();
   const { user, signOut } = useAuth();
+
+  // Resetear error de foto cuando cambia la foto
+  useEffect(() => {
+    setTopbarPhotoErr(false);
+  }, [config.profilePhoto]);
 
   // Listen for sidebar mode changes from ConfiguracionPage
   useEffect(() => {
@@ -230,7 +237,7 @@ const AppLayout = () => {
     };
   }, [reloadFromCloud]);
 
-  // Auto-guardar en la nube cada vez que CUALQUIER dato cambia (debounced 2s)
+  // Auto-guardar en la nube cada vez que CUALQUIER dato cambia (debounced 1s)
   useEffect(() => {
     if (!user) return;
     const unsub = store.subscribe(() => {
@@ -240,30 +247,31 @@ const AppLayout = () => {
       // Marcar cambios pendientes locales de inmediato
       localStorage.setItem('sep_pending_cloud_sync', 'true');
 
-      // Usamos un debounce para no saturar la API
+      // Usamos un debounce de 1s para balance entre velocidad y saturación de API
       clearTimeout(window.__cloudSaveTimer);
       window.__cloudSaveTimer = setTimeout(async () => {
         const s = store.getState();
         try {
           await saveToCloud(user.id, {
-            pedidos:       s.pedidos,
-            cotizaciones:  s.cotizaciones,
-            finanzas:      s.finanzas,
-            clientes:      s.clientes,
-            productos:     s.productos,
-            config:        s.config,
-            negocioConfig: s.negocioConfig,
-            themeColor:    s.themeColor,
-            notas:         s.notas,
+            pedidos:         s.pedidos,
+            cotizaciones:    s.cotizaciones,
+            finanzas:        s.finanzas,
+            clientes:        s.clientes,
+            productos:       s.productos,
+            config:          s.config,
+            negocioConfig:   s.negocioConfig,
+            themeColor:      s.themeColor,
+            notas:           s.notas,
             categoriasNotas: s.categoriasNotas,
           });
-          // Limpiar cambios pendientes de inmediato
+          // Registrar cuándo terminamos de guardar (para que Realtime no haga reload de nuestro propio save)
+          window.__lastCloudSave = Date.now();
           localStorage.setItem('sep_pending_cloud_sync', 'false');
         } catch (err) {
           console.error('Error al sincronizar con la nube:', err);
         }
         window.__cloudSaveTimer = null;
-      }, 2000);
+      }, 1000);
     });
     return () => {
       unsub();
@@ -271,6 +279,40 @@ const AppLayout = () => {
       window.__cloudSaveTimer = null;
     };
   }, [user]);
+
+  // ── Supabase Realtime: recibir cambios de otras sesiones al instante ──────
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`realtime:user_data:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event:  'UPDATE',
+          schema: 'public',
+          table:  'user_data',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          // Si YO acabo de guardar (< 2.5s), ignoramos el evento para evitar loop
+          const timeSinceOwnSave = Date.now() - (window.__lastCloudSave || 0);
+          const hasPendingTimer  = !!window.__cloudSaveTimer;
+          if (timeSinceOwnSave < 2500 || hasPendingTimer) return;
+
+          // Es un cambio de otra sesión → recargamos desde la nube
+          console.log('[Realtime] Cambio detectado de otra sesión, recargando...');
+          reloadFromCloud();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Realtime] Estado del canal:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, reloadFromCloud]);
 
   // Advertir al usuario al cerrar pestaña si hay cambios pendientes
   useEffect(() => {
@@ -379,7 +421,7 @@ const AppLayout = () => {
           >
             {store.getState().darkMode ? '☀️' : '🌙'}
           </button>
-          {config.profilePhoto ? (
+          {config.profilePhoto && !topbarPhotoErr ? (
             <div className="topbar-avatar-container" style={{
               padding: '2px',
               background: getAvatarGradient(themeColor),
@@ -394,6 +436,7 @@ const AppLayout = () => {
               <img
                 src={config.profilePhoto}
                 alt="Perfil"
+                onError={() => setTopbarPhotoErr(true)}
                 style={{
                   width: 30, height: 30, borderRadius: '50%', objectFit: 'cover',
                   border: '1.5px solid hsl(var(--card))',

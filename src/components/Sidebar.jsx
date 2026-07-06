@@ -1,8 +1,9 @@
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 
 const navItems = [
-  { path: '/',              icon: '🏠', label: 'Dashboard',    section: 'Principal'    },
+  { path: '/',              icon: '🏠', label: 'Inicio',       section: 'Principal'    },
   { path: '/pedidos',       icon: '📦', label: 'Pedidos',      section: 'Gestión'      },
   { path: '/calendario',    icon: '📅', label: 'Calendario',   section: 'Gestión'      },
   { path: '/cotizaciones',  icon: '📋', label: 'Cotizaciones', section: 'Gestión'      },
@@ -39,6 +40,11 @@ export const getAvatarGradient = (themeColor) => {
 export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
   const storeState = useStore();
   const { pedidos, config, darkMode, themeColor } = storeState;
+  const [sidebarPhotoErr, setSidebarPhotoErr] = useState(false);
+
+  useEffect(() => {
+    setSidebarPhotoErr(false);
+  }, [config.profilePhoto]);
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 1024;
   const showCompact = isCompact && !isMobile;
@@ -151,7 +157,7 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
           title={showCompact ? (config.propietario || config.negocio || 'Mi Negocio') : undefined}
           >
             {/* Avatar llamativo con gradiente */}
-            {config.profilePhoto ? (
+            {config.profilePhoto && !sidebarPhotoErr ? (
               <div style={{
                 position: 'relative',
                 padding: '2px',
@@ -166,6 +172,7 @@ export const Sidebar = ({ open, onClose, onSignOut, isCompact }) => {
                 <img
                   src={config.profilePhoto}
                   alt="Perfil"
+                  onError={() => setSidebarPhotoErr(true)}
                   style={{
                     width: 30, height: 30, borderRadius: '50%', objectFit: 'cover',
                     border: '1.5px solid hsl(var(--card))',

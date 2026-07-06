@@ -20,6 +20,7 @@ export const ConfiguracionPage = () => {
   const [confirmReset, setConfirmReset] = useState(false);
   const [activeTab, setActiveTab]   = useState('negocio');
   const [copied, setCopied]         = useState(false);
+  const [configPhotoErr, setConfigPhotoErr] = useState(false);
 
   // Forms states
   const [formConfig, setFormConfig] = useState({ ...config });
@@ -56,6 +57,11 @@ export const ConfiguracionPage = () => {
   useEffect(() => {
     if (!editConfig) setFormConfig({ ...config });
   }, [config, editConfig]);
+
+  // Resetear error de foto al cambiar la foto
+  useEffect(() => {
+    setConfigPhotoErr(false);
+  }, [formConfig.profilePhoto]);
 
   // Apply sidebar mode — also fires custom event so App.jsx reacts immediately
   useEffect(() => {
@@ -244,42 +250,45 @@ export const ConfiguracionPage = () => {
                   <div className="configuracion-profile-block" style={{ display: 'flex', alignItems: 'flex-start', gap: 20, marginBottom: 20 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                       <div style={{ position: 'relative' }}>
-                        {formConfig.profilePhoto ? (
-                          <img
-                            src={formConfig.profilePhoto}
-                            alt="Perfil"
-                            style={{ width: 88, height: 88, borderRadius: '50%', objectFit: 'cover', border: `3px solid hsl(var(--primary))`, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}
-                          />
-                        ) : (
-                          <div style={{
-                            width: 88, height: 88, borderRadius: '50%',
-                            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
-                            color: 'white', display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontWeight: 900, fontSize: 36,
-                            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                          }}>
-                            {(formConfig.propietario || formConfig.negocio || 'U')[0].toUpperCase()}
-                          </div>
+                          {formConfig.profilePhoto && !configPhotoErr ? (
+                            <img
+                              src={formConfig.profilePhoto}
+                              alt="Perfil"
+                              onError={() => setConfigPhotoErr(true)}
+                              style={{ width: 88, height: 88, borderRadius: '50%', objectFit: 'cover', border: `3px solid hsl(var(--primary))`, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}
+                            />
+                          ) : (
+                            <div style={{
+                              width: 88, height: 88, borderRadius: '50%',
+                              background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
+                              color: 'white', display: 'flex', alignItems: 'center',
+                              justifyContent: 'center', fontWeight: 900, fontSize: 36,
+                              boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                            }}>
+                              {(formConfig.propietario || formConfig.negocio || 'U')[0].toUpperCase()}
+                            </div>
+                          )}
+                          {editConfig && (
+                            <label style={{
+                              position: 'absolute', bottom: 0, right: 0,
+                              width: 28, height: 28, borderRadius: '50%',
+                              background: 'hsl(var(--primary))', color: '#fff',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer', fontSize: 14, boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                            }}>
+                              📷
+                              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
+                            </label>
+                          )}
+                        </div>
+                        {editConfig && formConfig.profilePhoto && (
+                          <span
+                            style={{ cursor: 'pointer', fontSize: 11, color: 'hsl(var(--danger))', fontWeight: 600, marginTop: 4 }}
+                            onClick={() => setFormConfig({ ...formConfig, profilePhoto: '' })}
+                          >
+                            🗑️ Quitar foto
+                          </span>
                         )}
-                        {editConfig && (
-                          <label style={{
-                            position: 'absolute', bottom: 0, right: 0,
-                            width: 28, height: 28, borderRadius: '50%',
-                            background: 'hsl(var(--primary))', color: '#fff',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', fontSize: 14, boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                          }}>
-                            📷
-                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
-                          </label>
-                        )}
-                      </div>
-                      {editConfig && formConfig.profilePhoto && (
-                        <span style={{ cursor: 'pointer', fontSize: 11, color: 'hsl(var(--danger))', fontWeight: 600 }}
-                          onClick={() => setFormConfig({ ...formConfig, profilePhoto: '' })}>
-                          🗑️ Quitar foto
-                        </span>
-                      )}
                     </div>
 
                     <div className="form-grid" style={{ flex: 1, marginTop: 0 }}>

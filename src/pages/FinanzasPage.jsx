@@ -88,9 +88,16 @@ export const FinanzasPage = () => {
     return matchSearch && matchTipo;
   });
 
-  const ingresos       = finanzas.filter(f => f.tipo === 'ingreso').reduce((s, f) => s + f.monto, 0);
-  const gastos         = finanzas.filter(f => f.tipo === 'gasto').reduce((s, f) => s + f.monto, 0);
-  const costoProdTotal = finanzas.filter(f => f.tipo === 'ingreso' && f.costoProd).reduce((s, f) => s + Number(f.costoProd || 0), 0);
+  // Totales de las tarjetas — filtrados por año/mes del selector de la gráfica
+  const finanzasFiltradas = finanzas.filter(f => {
+    const fAnio = f.fecha?.slice(0, 4);
+    const fMes  = f.fecha?.slice(5, 7);
+    return (!chartAnio || fAnio === chartAnio) && (!chartMes || fMes === chartMes);
+  });
+
+  const ingresos       = finanzasFiltradas.filter(f => f.tipo === 'ingreso').reduce((s, f) => s + f.monto, 0);
+  const gastos         = finanzasFiltradas.filter(f => f.tipo === 'gasto').reduce((s, f) => s + f.monto, 0);
+  const costoProdTotal = finanzasFiltradas.filter(f => f.tipo === 'ingreso' && f.costoProd).reduce((s, f) => s + Number(f.costoProd || 0), 0);
   const gananciaTotal  = ingresos - costoProdTotal - gastos;
 
   // Gráfica
@@ -415,7 +422,11 @@ export const FinanzasPage = () => {
         <div className="balance-card positive">
           <div className="balance-label">💰 Total Bruto</div>
           <div className="balance-amount">{fmt(ingresos)}</div>
-          <div style={{ fontSize: 11, opacity: 0.75, marginTop: 4 }}>Total facturado a clientes</div>
+          <div style={{ fontSize: 11, opacity: 0.75, marginTop: 4 }}>
+            {chartAnio || chartMes
+              ? `${chartMes ? MESES.find(m => m.value === chartMes)?.label + ' ' : ''}${chartAnio || ''}`.trim()
+              : 'Total facturado a clientes'}
+          </div>
         </div>
         <div className="balance-card negative">
           <div className="balance-label">🏧 Costo Producción</div>
