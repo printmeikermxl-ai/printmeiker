@@ -50,17 +50,23 @@ export const saveToCloud = async (userId, data, _attempt = 1) => {
   }
 
   try {
-    const { error } = await supabase
+    const { data: dbRow, error } = await supabase
       .from('user_data')
       .upsert(
         { user_id: userId, data, updated_at: new Date().toISOString() },
         { onConflict: 'user_id' }
-      );
+      )
+      .select('updated_at')
+      .single();
     if (error) throw error;
 
     // ✅ Éxito — notificar al agente
     const counts = `${data.pedidos?.length ?? 0} pedidos, ${data.cotizaciones?.length ?? 0} cotizaciones`;
-    localStorage.setItem('sep_local_last_save', new Date().toISOString());
+    if (dbRow && dbRow.updated_at) {
+      localStorage.setItem('sep_local_last_save', dbRow.updated_at);
+    } else {
+      localStorage.setItem('sep_local_last_save', new Date().toISOString());
+    }
     window.dispatchEvent(new CustomEvent('sep:sync:success', { detail: { detail: counts } }));
   } catch (e) {
     console.warn(`[sync] Intento ${_attempt}/${MAX_RETRIES} fallido:`, e.message);
@@ -969,6 +975,7 @@ window.addEventListener('storage', (e) => {
   if (!e.newValue) return;
   
   try {
+    window.__isSyncingFromStorage = true;
     switch (e.key) {
       case 'sep_config':
         setState({ config: JSON.parse(e.newValue) });
@@ -1019,5 +1026,7 @@ window.addEventListener('storage', (e) => {
     }
   } catch (error) {
     console.error('Error syncing tab state:', error);
+  } finally {
+    window.__isSyncingFromStorage = false;
   }
 });

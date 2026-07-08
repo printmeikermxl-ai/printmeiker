@@ -64,5 +64,8 @@ CREATE TRIGGER trigger_update_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at();
 
+-- 7. Habilitar Realtime para la tabla user_data para recibir cambios al instante entre dispositivos/pestañas
+alter publication supabase_realtime add table public.user_data;
+
 -- ✅ ¡Listo! La tabla user_data está creada y configurada.
 -- Ahora ve a: Authentication → Providers → Email → Desactiva "Confirm email"

@@ -302,8 +302,8 @@ const AppLayout = () => {
   useEffect(() => {
     if (!user) return;
     const unsub = store.subscribe(() => {
-      // No guardar si estamos recargando desde la nube
-      if (window.__isReloadingFromCloud) return;
+      // No guardar si estamos recargando desde la nube o recibiendo de otra pestaña
+      if (window.__isReloadingFromCloud || window.__isSyncingFromStorage) return;
 
       // Marcar cambios pendientes locales de inmediato
       localStorage.setItem('sep_pending_cloud_sync', 'true');
