@@ -570,9 +570,34 @@ export const CotizacionesPage = () => {
                     )}
                     <td className="qd-td qd-td-no">{String(i + 1).padStart(2, '0')}</td>
                     <td className="qd-td qd-td-desc">
-                      <div>{line.nombre || '—'}</div>
+                      <div style={{ fontWeight: 600 }}>{line.nombre || '—'}</div>
+                      {line._esCombo && line._comboId && (() => {
+                        const comboObj = combos.find(c => c.id === line._comboId);
+                        if (comboObj && comboObj.articulos && comboObj.articulos.length > 0) {
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, padding: '6px 10px', background: 'hsl(var(--bg))', borderRadius: 8, border: '1px solid hsl(var(--border) / 0.5)' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: 'hsl(var(--primary))' }}>📦 Incluye:</span>
+                              {comboObj.articulos.map((a, idx) => (
+                                <div key={idx} style={{ fontSize: 11, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{ display: 'inline-block', width: 18, height: 15, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 3, textAlign: 'center', lineHeight: '15px', fontWeight: 700, fontSize: 9 }}>
+                                    {a.cantidad}
+                                  </span>
+                                  <span>{a.nombre}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        } else if (line._comboDescripcion) {
+                          return (
+                            <div style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 4, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+                              🎁 <strong>Incluye:</strong> {line._comboDescripcion}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       {line.descuentoActivo && Number(line.descuentoValor) > 0 && (
-                        <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>
+                        <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginTop: 4 }}>
                           Descuento: -{line.descuentoTipo === 'porcentaje' ? `${line.descuentoValor}%` : fmt(line.descuentoValor)}
                         </div>
                       )}

@@ -2,6 +2,19 @@ import { useState } from 'react';
 import { useStore, store } from '../store/useStore';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
+const parseDescripcionAArticulos = (desc) => {
+  if (!desc) return [{ cantidad: 1, nombre: '' }];
+  const lineas = desc.split('\n').filter(Boolean);
+  const parsed = lineas.map(line => {
+    const match = line.match(/^(\d+)\s*(?:x|pz|pzs|pz\.|pzs\.)?\s*(.*)$/i);
+    if (match) {
+      return { cantidad: parseInt(match[1], 10), nombre: match[2].trim() };
+    }
+    return { cantidad: 1, nombre: line.trim() };
+  });
+  return parsed.length > 0 ? parsed : [{ cantidad: 1, nombre: '' }];
+};
+
 // Paleta de colores disponibles para categorías
 const PALETA_COLORES = [
   { bg: '#DBEAFE', text: '#1E40AF', label: 'Azul' },
@@ -383,7 +396,7 @@ export const CatalogoPage = () => {
   const [filtroCategoria, setFiltroCategoria] = useState('todos');
   const [modal, setModal] = useState(null); // null | 'create' | 'edit' | 'categorias' | 'createCombo' | 'editCombo'
   const [form, setForm] = useState(emptyForm());
-  const [comboForm, setComboForm] = useState({ nombre: '', descripcion: '', precio: '', activo: true });
+  const [comboForm, setComboForm] = useState({ nombre: '', articulos: [{ cantidad: 1, nombre: '' }], precio: '', activo: true });
   const [editId, setEditId] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [confirmCombo, setConfirmCombo] = useState(null);
@@ -434,8 +447,11 @@ export const CatalogoPage = () => {
   const handleSaveCombo = (e) => {
     e.preventDefault();
     const data = {
-      ...comboForm,
+      nombre: comboForm.nombre,
+      articulos: comboForm.articulos,
+      descripcion: comboForm.articulos.map(a => `${a.cantidad}x ${a.nombre}`).join('\n'),
       precio: Number(comboForm.precio),
+      activo: comboForm.activo,
     };
     if (editId) store.updateCombo(editId, data);
     else store.addCombo(data);
@@ -443,15 +459,16 @@ export const CatalogoPage = () => {
   };
 
   const openCreateCombo = () => {
-    setComboForm({ nombre: '', descripcion: '', precio: '', activo: true });
+    setComboForm({ nombre: '', articulos: [{ cantidad: 1, nombre: '' }], precio: '', activo: true });
     setEditId(null);
     setModal('createCombo');
   };
 
   const openEditCombo = (c) => {
+    const articulos = c.articulos || parseDescripcionAArticulos(c.descripcion);
     setComboForm({
       nombre: c.nombre,
-      descripcion: c.descripcion || '',
+      articulos,
       precio: c.precio,
       activo: c.activo !== false,
     });
@@ -771,7 +788,20 @@ export const CatalogoPage = () => {
                   </button>
                 </div>
 
-                {c.descripcion && <p className="product-desc" style={{ whiteSpace: 'pre-wrap' }}>{c.descripcion}</p>}
+                {c.articulos && c.articulos.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '10px 0' }}>
+                    {c.articulos.map((a, idx) => (
+                      <div key={idx} style={{ fontSize: 13, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ display: 'inline-block', width: 22, height: 18, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 4, textAlign: 'center', lineHeight: '18px', fontWeight: 700, fontSize: 10 }}>
+                          {a.cantidad}
+                        </span>
+                        <span style={{ fontWeight: 500 }}>{a.nombre}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : c.descripcion ? (
+                  <p className="product-desc" style={{ whiteSpace: 'pre-wrap' }}>{c.descripcion}</p>
+                ) : null}
 
                 <div style={{ marginTop: 12 }}>
                   <div className="product-price">{fmt(c.precio)}<span style={{ fontSize: 11, fontWeight: 400, color: 'hsl(var(--muted))', marginLeft: 4 }}>precio total</span></div>
@@ -805,7 +835,20 @@ export const CatalogoPage = () => {
                         <span style={{ fontSize: 18 }}>🎁</span> {c.nombre}
                       </div>
                     </td>
-                    <td style={{ fontSize: 13, color: 'hsl(var(--muted))', whiteSpace: 'pre-wrap' }}>{c.descripcion || '—'}</td>
+                    <td style={{ fontSize: 13, color: 'hsl(var(--muted))' }}>
+                      {c.articulos && c.articulos.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {c.articulos.map((a, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ display: 'inline-block', width: 20, height: 16, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 4, textAlign: 'center', lineHeight: '16px', fontWeight: 700, fontSize: 10 }}>
+                                {a.cantidad}
+                              </span>
+                              <span>{a.nombre}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : c.descripcion || '—'}
+                    </td>
                     <td><strong style={{ color: 'hsl(var(--primary))' }}>{fmt(c.precio)}</strong></td>
                     <td>
                       <span className={`badge ${c.activo ? 'badge-completado' : 'badge-cancelado'}`}>
@@ -1057,15 +1100,63 @@ export const CatalogoPage = () => {
                     placeholder="Ej: Paquete Básico, Combo Graduación" 
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Artículos que incluye / Descripción</label>
-                  <textarea 
-                    className="form-textarea" 
-                    value={comboForm.descripcion} 
-                    onChange={e => setComboForm({ ...comboForm, descripcion: e.target.value })} 
-                    placeholder="Detalla lo que incluye el paquete (ej. 10 Termos grabados + 10 plantillas)..." 
-                    style={{ minHeight: 120 }}
-                  />
+                <div className="form-group" style={{ marginBottom: 20 }}>
+                  <label className="form-label" style={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span>📦 Artículos incluidos en el paquete</span>
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary btn-sm" 
+                      onClick={() => setComboForm({ ...comboForm, articulos: [...comboForm.articulos, { cantidad: 1, nombre: '' }] })}
+                      style={{ padding: '4px 10px', fontSize: 11, height: 'auto', width: 'auto' }}
+                    >
+                      + Añadir artículo
+                    </button>
+                  </label>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                    {comboForm.articulos.map((art, idx) => (
+                      <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input 
+                          type="number"
+                          className="form-input"
+                          min="1"
+                          placeholder="Cant."
+                          value={art.cantidad}
+                          onChange={e => {
+                            const nextArt = comboForm.articulos.map((a, i) => i === idx ? { ...a, cantidad: parseInt(e.target.value, 10) || 1 } : a);
+                            setComboForm({ ...comboForm, articulos: nextArt });
+                          }}
+                          style={{ width: 80, textAlign: 'center' }}
+                          required
+                        />
+                        <input 
+                          type="text"
+                          className="form-input"
+                          placeholder="Ej: vasos sun 16oz"
+                          value={art.nombre}
+                          onChange={e => {
+                            const nextArt = comboForm.articulos.map((a, i) => i === idx ? { ...a, nombre: e.target.value } : a);
+                            setComboForm({ ...comboForm, articulos: nextArt });
+                          }}
+                          style={{ flex: 1 }}
+                          required
+                        />
+                        {comboForm.articulos.length > 1 && (
+                          <button 
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ padding: '6px 10px', color: 'hsl(var(--danger))', border: 'none', background: 'transparent' }}
+                            onClick={() => {
+                              const nextArt = comboForm.articulos.filter((_, i) => i !== idx);
+                              setComboForm({ ...comboForm, articulos: nextArt });
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Precio total predefinido *</label>
