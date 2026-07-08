@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { getLocalDateString } from '../store/useStore';
 
 const METODOS_PAGO = [
   { value: 'transferencia', label: 'Transferencia', icon: '🏦', color: '#2563eb', bg: '#dbeafe' },
@@ -16,7 +17,7 @@ const emptyComprobante = () => ({
   metodoPago: 'transferencia',
   banco: '',
   referencia: '',
-  fechaPago: new Date().toISOString().split('T')[0],
+  fechaPago: getLocalDateString(),
   observaciones: '',
   archivo: null,       // { name, type, dataUrl }
 });

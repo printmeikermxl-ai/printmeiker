@@ -1,12 +1,12 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store/useStore';
+import { useStore, getLocalDateString } from '../store/useStore';
 
-const hoy = () => new Date().toISOString().split('T')[0];
+const hoy = () => getLocalDateString();
 const manana = () => {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
+  return getLocalDateString(d);
 };
 
 export const useNotificaciones = () => {

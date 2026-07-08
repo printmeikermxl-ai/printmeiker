@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useStore, store } from '../store/useStore';
+import { useStore, store, getLocalDateString } from '../store/useStore';
 import { StatusBadge } from '../components/StatusBadge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -37,7 +37,7 @@ const CATEGORIAS_GASTO   = ['Materiales', 'Renta', 'Servicios', 'Salarios', 'Equ
 const emptyForm = () => ({
   tipo: 'ingreso', concepto: '', monto: '',
   costoProd: '',
-  fecha: new Date().toISOString().split('T')[0],
+  fecha: getLocalDateString(),
   categoria: 'Ventas',
   metodoPago: 'efectivo',
   montoEfectivo: '',

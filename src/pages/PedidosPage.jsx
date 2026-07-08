@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useStore, store } from '../store/useStore';
+import { useStore, store, getLocalDateString } from '../store/useStore';
 import { StatusBadge } from '../components/StatusBadge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProductLinesInput } from '../components/ProductLinesInput';
@@ -31,7 +31,7 @@ const ROW_COLORS = {
 
 const emptyForm = () => ({
   cliente: '', telefono: '', email: '',
-  fecha: new Date().toISOString().split('T')[0],
+  fecha: getLocalDateString(),
   fechaEntrega: '',
   estado: 'pendiente',
   productos: [{ nombre: '', cantidad: 1, precio: 0 }],
@@ -425,11 +425,6 @@ const ModalEtiquetasPedidos = ({ etiquetasPedidos = [], onClose }) => {
       </div>
     </div>
   );
-};
-const getLocalDateString = (offsetDays = 0) => {
-  const d = new Date();
-  if (offsetDays !== 0) d.setDate(d.getDate() + offsetDays);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
 const getWeekRange = () => {
@@ -1606,7 +1601,7 @@ export const PedidosPage = () => {
                       montoEfectivo: mEfectivo,
                       montoTarjeta: mTarjeta,
                       costoProd: finanzasCostoProd !== '' ? Number(finanzasCostoProd) : null,
-                      fecha: new Date().toISOString().split('T')[0],
+                      fecha: getLocalDateString(),
                       categoria,
                       metodoPago: finanzasMetodo,
                     });
@@ -1731,7 +1726,7 @@ export const PedidosPage = () => {
                       montoEfectivo: mEfectivo,
                       montoTarjeta: mTarjeta,
                       costoProd: null,
-                      fecha: new Date().toISOString().split('T')[0],
+                      fecha: getLocalDateString(),
                       categoria: 'Anticipo',
                       metodoPago: anticipoMetodo,
                     });
@@ -1814,7 +1809,7 @@ const ReciboDocument = ({ formData, pedidoId, config, canalesVenta, negocioConfi
             <span className="qd-meta-label">Pedido No.:</span>
             <span className="qd-meta-value">{pedidoId}</span>
             <span className="qd-meta-label">Fecha Emisión:</span>
-            <span className="qd-meta-value">{new Date().toISOString().split('T')[0]}</span>
+            <span className="qd-meta-value">{getLocalDateString()}</span>
             <span className="qd-meta-label">Fecha Pedido:</span>
             <span className="qd-meta-value">{formData.fecha}</span>
             {formData.canal && (() => {

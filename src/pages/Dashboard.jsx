@@ -4,7 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Legend,
 } from 'recharts';
-import { useStore } from '../store/useStore';
+import { useStore, getLocalDateString } from '../store/useStore';
 import { StatusBadge } from '../components/StatusBadge';
 import { NotesWidget } from '../components/NotesWidget';
 
@@ -28,7 +28,7 @@ export const Dashboard = () => {
   const chartData = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
     d.setDate(today.getDate() - (6 - i));
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = getLocalDateString(d);
     const dayLabel = d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric' });
     const ingresos = finanzas
       .filter(f => f.tipo === 'ingreso' && f.fecha === dateStr)

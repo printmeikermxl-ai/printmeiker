@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, store } from '../store/useStore';
+import { useStore, store, getLocalDateString } from '../store/useStore';
 import { StatusBadge } from '../components/StatusBadge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProductLinesInput } from '../components/ProductLinesInput';
@@ -16,7 +16,7 @@ const ESTADOS = ['pendiente', 'aprobada', 'rechazada', 'vencida'];
 const emptyForm = () => ({
   cliente: '', telefono: '', email: '', direccion: '',
   ciudad: '', estado_cliente: '',
-  fecha: new Date().toISOString().split('T')[0],
+  fecha: getLocalDateString(),
   validez: '',
   estado: 'pendiente',
   fechaEntrega: '',
@@ -149,7 +149,7 @@ export const CotizacionesPage = () => {
       }
       store.addPedido({
         cliente: cot.cliente, telefono: cot.telefono, email: cot.email,
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: getLocalDateString(),
         fechaEntrega: aceptarForm.fechaEntrega,
         estado: 'pendiente', productos: cot.productos,
         total: cotTotal, anticipo: montoAnticipo,
@@ -169,7 +169,7 @@ export const CotizacionesPage = () => {
           montoEfectivo: aceptarForm.metodoPago === 'mixto' ? Number(aceptarForm.montoEfectivo || 0) : null,
           montoTarjeta:  aceptarForm.metodoPago === 'mixto' ? Number(aceptarForm.montoTarjeta  || 0) : null,
           costoProd: null,
-          fecha: new Date().toISOString().split('T')[0],
+          fecha: getLocalDateString(),
           categoria,
           metodoPago: aceptarForm.metodoPago,
         });

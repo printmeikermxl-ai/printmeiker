@@ -2,6 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+export const getLocalDateString = (dateOrOffset = new Date()) => {
+  let date;
+  if (typeof dateOrOffset === 'number') {
+    date = new Date();
+    date.setDate(date.getDate() + dateOrOffset);
+  } else {
+    date = dateOrOffset;
+  }
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const load = (key, fallback) => {
   try {
     const raw = localStorage.getItem(key);
@@ -454,7 +468,7 @@ export const store = {
     localStorage.setItem('sep_cli_counter', next);
     const id = 'CL' + String(next).padStart(4, '0');
 
-    const clientes = [...state.clientes, { ...c, id, fechaRegistro: new Date().toISOString().split('T')[0] }];
+    const clientes = [...state.clientes, { ...c, id, fechaRegistro: getLocalDateString() }];
     save('sep_clientes', clientes);
     setState({ clientes });
   },
