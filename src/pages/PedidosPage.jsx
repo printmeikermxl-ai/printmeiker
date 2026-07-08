@@ -10,11 +10,11 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 const METODOS_PAGO_PED = [
-  { value: 'efectivo',      label: 'Efectivo',                  icon: '💵', color: '#16a34a', bg: '#f0fdf4' },
-  { value: 'transferencia', label: 'Transferencia',             icon: '🏦', color: '#2563eb', bg: '#dbeafe' },
-  { value: 'debito',        label: 'Tarjeta de débito',         icon: '💳', color: '#7c3aed', bg: '#ede9fe' },
-  { value: 'credito',       label: 'Tarjeta de crédito',        icon: '💳', color: '#db2777', bg: '#fce7f3' },
-  { value: 'mixto',         label: 'Mixto (efectivo+tarjeta)', icon: '🔀', color: '#d97706', bg: '#fef3c7' },
+  { value: 'efectivo', label: 'Efectivo', icon: '💵', color: '#16a34a', bg: '#f0fdf4' },
+  { value: 'transferencia', label: 'Transferencia', icon: '🏦', color: '#2563eb', bg: '#dbeafe' },
+  { value: 'debito', label: 'Tarjeta de débito', icon: '💳', color: '#7c3aed', bg: '#ede9fe' },
+  { value: 'credito', label: 'Tarjeta de crédito', icon: '💳', color: '#db2777', bg: '#fce7f3' },
+  { value: 'mixto', label: 'Mixto (efectivo+tarjeta)', icon: '🔀', color: '#d97706', bg: '#fef3c7' },
 ];
 
 const ESTADOS = ['pendiente', 'en_proceso', 'listo', 'completado', 'cancelado'];
@@ -22,11 +22,11 @@ const ESTADOS = ['pendiente', 'en_proceso', 'listo', 'completado', 'cancelado'];
 
 // Color del borde izquierdo según estado
 const ROW_COLORS = {
-  pendiente:  { borderLeft: '3px solid #F59E0B', background: 'transparent' },
+  pendiente: { borderLeft: '3px solid #F59E0B', background: 'transparent' },
   en_proceso: { borderLeft: '3px solid #3B82F6', background: 'rgba(59,130,246,0.03)' },
-  listo:      { borderLeft: '3px solid #10B981', background: 'rgba(16,185,129,0.04)' },
+  listo: { borderLeft: '3px solid #10B981', background: 'rgba(16,185,129,0.04)' },
   completado: { borderLeft: '3px solid #8B5CF6', background: 'rgba(139,92,246,0.04)' },
-  cancelado:  { borderLeft: '3px solid #EF4444', background: 'rgba(239,68,68,0.05)' },
+  cancelado: { borderLeft: '3px solid #EF4444', background: 'rgba(239,68,68,0.05)' },
 };
 
 const emptyForm = () => ({
@@ -53,7 +53,7 @@ const COLORES_DISPONIBLES = [
   { bg: '#ECFDF5', text: '#166534', label: 'Menta' },
 ];
 
-const EMOJIS_DISPONIBLES = ['💬','📸','👤','🏪','🌐','🛍️','📦','🚀','🔥','✨','🎉','⭐','📞','✉️'];
+const EMOJIS_DISPONIBLES = ['💬', '📸', '👤', '🏪', '🌐', '🛍️', '📦', '🚀', '🔥', '✨', '🎉', '⭐', '📞', '✉️'];
 
 export const CanalBadge = ({ canalId, canalesVenta = [] }) => {
   const canal = (canalesVenta || []).find(c => c.id === canalId || c.nombre === canalId);
@@ -439,10 +439,10 @@ const getWeekRange = () => {
   const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
   const monday = new Date(now);
   monday.setDate(now.getDate() + distanceToMonday);
-  
+
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  
+
   const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   return { start: fmtDate(monday), end: fmtDate(sunday) };
 };
@@ -485,7 +485,7 @@ export const PedidosPage = () => {
     const matchEstado = filtroEstado === 'todos' || p.estado === filtroEstado;
     const matchCanal = filtroCanal === 'todos' || p.canal === filtroCanal;
     const matchEtiqueta = filtroEtiqueta === 'todas' || (p.etiquetas || []).includes(filtroEtiqueta);
-    
+
     let matchFechaEntrega = true;
     if (filtroFechaEntrega !== 'todos') {
       const todayStr = getLocalDateString(0);
@@ -506,7 +506,7 @@ export const PedidosPage = () => {
         matchFechaEntrega = p.fechaEntrega === fechaEntregaFiltroVal;
       }
     }
-    
+
     return matchSearch && matchEstado && matchCanal && matchEtiqueta && matchFechaEntrega;
   });
 
@@ -645,7 +645,7 @@ export const PedidosPage = () => {
       const previousPedido = pedidos.find(p => p.id === editId);
       store.updatePedido(editId, data);
       setModal(null);
-      
+
       // Si el estado cambió a completado y antes no lo estaba, disparar el flujo de liquidación
       if (data.estado === 'completado' && previousPedido && previousPedido.estado !== 'completado') {
         const costoProdCalculado = (data.productos || []).reduce((acc, linea) => {
@@ -769,15 +769,15 @@ export const PedidosPage = () => {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            
+
             {/* Selector de entrega */}
-            <div className="filter-select-wrapper" style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: 6, 
-              background: 'hsl(var(--bg))', 
-              padding: '6px 12px', 
-              borderRadius: 10, 
+            <div className="filter-select-wrapper" style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'hsl(var(--bg))',
+              padding: '6px 12px',
+              borderRadius: 10,
               border: '1px solid hsl(var(--border))',
               height: 38,
               boxSizing: 'border-box'
@@ -788,13 +788,13 @@ export const PedidosPage = () => {
               <select
                 value={filtroFechaEntrega}
                 onChange={e => setFiltroFechaEntrega(e.target.value)}
-                style={{ 
-                  border: 'none', 
-                  background: 'transparent', 
-                  fontSize: 13, 
-                  fontWeight: 500, 
-                  outline: 'none', 
-                  cursor: 'pointer', 
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  outline: 'none',
+                  cursor: 'pointer',
                   color: 'hsl(var(--foreground))',
                   paddingRight: 10
                 }}
@@ -813,11 +813,11 @@ export const PedidosPage = () => {
               <input
                 type="date"
                 className="form-input"
-                style={{ 
-                  width: 'auto', 
-                  padding: '4px 10px', 
-                  height: 38, 
-                  fontSize: 13, 
+                style={{
+                  width: 'auto',
+                  padding: '4px 10px',
+                  height: 38,
+                  fontSize: 13,
                   borderRadius: 10,
                   boxSizing: 'border-box'
                 }}
@@ -832,14 +832,14 @@ export const PedidosPage = () => {
             <button
               type="button"
               className={`btn btn-sm ${showAdvanced ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 6, 
-                borderRadius: 10, 
-                padding: '0 16px', 
-                height: 38, 
-                fontSize: 13 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                borderRadius: 10,
+                padding: '0 16px',
+                height: 38,
+                fontSize: 13
               }}
               onClick={() => setShowAdvanced(!showAdvanced)}
             >
@@ -865,14 +865,14 @@ export const PedidosPage = () => {
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                style={{ 
-                  color: 'hsl(var(--danger))', 
-                  fontSize: 13, 
-                  padding: '0 12px', 
-                  height: 38, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 4 
+                style={{
+                  color: 'hsl(var(--danger))',
+                  fontSize: 13,
+                  padding: '0 12px',
+                  height: 38,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4
                 }}
                 onClick={() => {
                   setSearch('');
@@ -947,12 +947,12 @@ export const PedidosPage = () => {
                     <span>{chip.icon} {chip.label}</span>
                     <button
                       type="button"
-                      style={{ 
-                        border: 'none', 
-                        background: 'transparent', 
-                        cursor: 'pointer', 
-                        fontSize: 12, 
-                        padding: '0 2px', 
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        padding: '0 2px',
                         color: 'inherit',
                         display: 'inline-flex',
                         alignItems: 'center'
@@ -1121,7 +1121,7 @@ export const PedidosPage = () => {
                     <td>
                       <div style={{ fontWeight: 600 }}>{p.cliente}</div>
                       {p.telefono && <div style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>{p.telefono}</div>}
-                      
+
                       {/* Etiquetas del pedido en fila */}
                       {(p.etiquetas || []).length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>

@@ -294,11 +294,18 @@ export const DiagnosticAgent = ({ userId }) => {
         finanzas:        s.finanzas,
         clientes:        s.clientes,
         productos:       s.productos,
+        combos:          s.combos,
         config:          s.config,
         negocioConfig:   s.negocioConfig,
         themeColor:      s.themeColor,
         notas:           s.notas,
         categoriasNotas: s.categoriasNotas,
+        etiquetasPersonalizadas: s.etiquetasPersonalizadas,
+        categoriasProducto: s.categoriasProducto,
+        canalesVenta:    s.canalesVenta,
+        etiquetasPedidos: s.etiquetasPedidos,
+        alertasPedidos:  s.alertasPedidos,
+        darkMode:        s.darkMode,
       });
       localStorage.setItem('sep_pending_cloud_sync', 'false');
       agentLog('success', 'Sincronización manual completada', `${s.pedidos?.length || 0} pedidos, ${s.cotizaciones?.length || 0} cotizaciones`);

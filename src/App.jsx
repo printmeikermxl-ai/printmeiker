@@ -163,6 +163,12 @@ const AppLayout = () => {
         if (cloudData.themeColor)      localStorage.setItem('sep_theme',             JSON.stringify(cloudData.themeColor));
         if (cloudData.notas)           localStorage.setItem('sep_notas',             JSON.stringify(cloudData.notas));
         if (cloudData.categoriasNotas) localStorage.setItem('sep_categorias_notas', JSON.stringify(cloudData.categoriasNotas));
+        if (cloudData.etiquetasPersonalizadas) localStorage.setItem('sep_etiquetas', JSON.stringify(cloudData.etiquetasPersonalizadas));
+        if (cloudData.categoriasProducto)      localStorage.setItem('sep_categorias_producto', JSON.stringify(cloudData.categoriasProducto));
+        if (cloudData.canalesVenta)            localStorage.setItem('sep_canales_venta', JSON.stringify(cloudData.canalesVenta));
+        if (cloudData.etiquetasPedidos)        localStorage.setItem('sep_etiquetas_pedidos', JSON.stringify(cloudData.etiquetasPedidos));
+        if (cloudData.alertasPedidos)          localStorage.setItem('sep_alertas_pedidos', JSON.stringify(cloudData.alertasPedidos));
+        if (cloudData.darkMode !== undefined)  localStorage.setItem('sep_dark_mode', JSON.stringify(cloudData.darkMode));
         // Marcar que estamos recargando desde la nube (no guardar de vuelta)
         window.__isReloadingFromCloud = true;
         store.reloadFromLocalStorage();
@@ -182,6 +188,30 @@ const AppLayout = () => {
     if (!user) return;
 
     const loadAndPopulate = async () => {
+      const currentConfig = store.getState().config;
+      const isDifferentUser = currentConfig._authUserId && currentConfig._authUserId !== user.id;
+
+      // Si es un usuario diferente al que estaba guardado localmente,
+      // limpiar inmediatamente todo el almacenamiento local de negocio para evitar cruce de datos
+      if (isDifferentUser) {
+        console.log('[sync] Se detectó un usuario diferente en sesión. Limpiando almacenamiento local previo...');
+        const keysToClear = [
+          'sep_productos', 'sep_combos', 'sep_pedidos', 'sep_cotizaciones',
+          'sep_finanzas', 'sep_clientes', 'sep_etiquetas', 'sep_categorias_producto',
+          'sep_canales_venta', 'sep_config', 'sep_negocio_config', 'sep_alertas_pedidos',
+          'sep_theme', 'sep_dark_mode', 'sep_notas', 'sep_categorias_notas',
+          'sep_etiquetas_pedidos', 'sep_pending_cloud_sync', 'sep_local_last_save',
+          'sep_cot_counter', 'sep_ped_counter', 'sep_cli_counter', 'sep_fin_counter'
+        ];
+        keysToClear.forEach(key => localStorage.removeItem(key));
+        
+        // Cargar estado inicial limpio en memoria
+        window.__isReloadingFromCloud = true;
+        store.reloadFromLocalStorage();
+        await new Promise(resolve => setTimeout(resolve, 50));
+        window.__isReloadingFromCloud = false;
+      }
+
       const isPending = localStorage.getItem('sep_pending_cloud_sync') === 'true';
       if (isPending) {
         console.log('Sincronizando cambios locales pendientes al iniciar...');
@@ -199,6 +229,12 @@ const AppLayout = () => {
             themeColor:    s.themeColor,
             notas:         s.notas,
             categoriasNotas: s.categoriasNotas,
+            etiquetasPersonalizadas: s.etiquetasPersonalizadas,
+            categoriasProducto: s.categoriasProducto,
+            canalesVenta:  s.canalesVenta,
+            etiquetasPedidos: s.etiquetasPedidos,
+            alertasPedidos: s.alertasPedidos,
+            darkMode:      s.darkMode,
           });
           localStorage.setItem('sep_pending_cloud_sync', 'false');
           console.log('Sincronización inicial de cambios locales completada.');
@@ -212,7 +248,7 @@ const AppLayout = () => {
       // Esperar un tick para asegurarnos que el store ya se actualizó
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const currentConfig = store.getState().config;
+      const updatedConfig = store.getState().config;
       const meta = user.user_metadata || {};
 
       // Datos del usuario autenticado (Google o Email)
@@ -221,23 +257,17 @@ const AppLayout = () => {
       const avatar = meta.avatar_url || meta.picture || '';
 
       const updates = {};
-      const isDifferentUser = currentConfig._authUserId && currentConfig._authUserId !== user.id;
 
-      // Si es un usuario diferente al que estaba guardado, re-rellenar todo
+      // Re-rellenar perfil según si es un nuevo usuario o el mismo
       if (isDifferentUser) {
         if (nombre) updates.propietario = nombre;
         if (email) updates.email = email;
-        // No pisar foto manual si ya hay una y es el mismo usuario; sí pisar si es otro usuario
         if (avatar) updates.profilePhoto = avatar;
         else updates.profilePhoto = '';
       } else {
-        // Mismo usuario (o primera vez): solo rellenar campos vacíos
-        // El email siempre se sincroniza desde auth (fuente más confiable)
-        if (email && currentConfig.email !== email) updates.email = email;
-        // Propietario: rellenar si está vacío
-        if (!currentConfig.propietario && nombre) updates.propietario = nombre;
-        // Foto: rellenar desde Google si no hay foto manual
-        if (avatar && !currentConfig.profilePhoto) updates.profilePhoto = avatar;
+        if (email && updatedConfig.email !== email) updates.email = email;
+        if (!updatedConfig.propietario && nombre) updates.propietario = nombre;
+        if (avatar && !updatedConfig.profilePhoto) updates.profilePhoto = avatar;
       }
 
       // Guardar el ID del usuario autenticado para detectar cambios de cuenta
@@ -295,6 +325,12 @@ const AppLayout = () => {
             themeColor:      s.themeColor,
             notas:           s.notas,
             categoriasNotas: s.categoriasNotas,
+            etiquetasPersonalizadas: s.etiquetasPersonalizadas,
+            categoriasProducto: s.categoriasProducto,
+            canalesVenta:    s.canalesVenta,
+            etiquetasPedidos: s.etiquetasPedidos,
+            alertasPedidos:  s.alertasPedidos,
+            darkMode:        s.darkMode,
           });
           // Registrar cuándo terminamos de guardar (para que Realtime no haga reload de nuestro propio save)
           window.__lastCloudSave = Date.now();
