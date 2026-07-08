@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Sidebar, getAvatarGradient } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
@@ -20,6 +20,7 @@ import { supabase } from './lib/supabase';
 import { GlobalSearch } from './components/GlobalSearch';
 import { NotificacionesPanel, NotifBell } from './components/NotificacionesPanel';
 import { CalculadoraFlotante } from './components/CalculadoraFlotante';
+import { DiagnosticAgent } from './components/DiagnosticAgent';
 
 const PAGE_TITLES = {
   '/': '🏠 Dashboard',
@@ -119,31 +120,48 @@ const AppLayout = () => {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  // ── Lock de recarga para evitar sobrescribir cambios locales ──────────────
+  const reloadLockRef = useRef(false);
+
   // Función para cargar datos de la nube y actualizar el store
   const reloadFromCloud = useCallback(async () => {
     if (!user) return;
-    // Si hay cambios locales pendientes de guardar en la nube, evitamos sobrescribirlos
-    if (window.__cloudSaveTimer || localStorage.getItem('sep_pending_cloud_sync') === 'true') {
-      console.log('Recarga de nube pospuesta: cambios locales pendientes de subir.');
+
+    // Protección ampliada: si hay timer activo, cambios pendientes O recarga en curso → no sobreescribir
+    if (
+      window.__cloudSaveTimer ||
+      localStorage.getItem('sep_pending_cloud_sync') === 'true' ||
+      reloadLockRef.current
+    ) {
+      console.log('[sync] Recarga de nube pospuesta: cambios locales pendientes de subir.');
       return;
     }
-    const cloudData = await loadFromCloud(user.id);
-    if (cloudData) {
-      if (cloudData.pedidos)       localStorage.setItem('sep_pedidos',       JSON.stringify(cloudData.pedidos));
-      if (cloudData.cotizaciones)  localStorage.setItem('sep_cotizaciones',  JSON.stringify(cloudData.cotizaciones));
-      if (cloudData.finanzas)      localStorage.setItem('sep_finanzas',      JSON.stringify(cloudData.finanzas));
-      if (cloudData.clientes)      localStorage.setItem('sep_clientes',      JSON.stringify(cloudData.clientes));
-      if (cloudData.productos)     localStorage.setItem('sep_productos',     JSON.stringify(cloudData.productos));
-      if (cloudData.config)        localStorage.setItem('sep_config',        JSON.stringify(cloudData.config));
-      if (cloudData.negocioConfig) localStorage.setItem('sep_negocio_config', JSON.stringify(cloudData.negocioConfig));
-      if (cloudData.themeColor)    localStorage.setItem('sep_theme',         JSON.stringify(cloudData.themeColor));
-      if (cloudData.notas)         localStorage.setItem('sep_notas',         JSON.stringify(cloudData.notas));
-      if (cloudData.categoriasNotas) localStorage.setItem('sep_categorias_notas', JSON.stringify(cloudData.categoriasNotas));
-      // Marcar que estamos recargando desde la nube (no guardar de vuelta)
-      window.__isReloadingFromCloud = true;
-      store.reloadFromLocalStorage();
-      // Pequeño delay para que el subscribe no guarde de vuelta
-      setTimeout(() => { window.__isReloadingFromCloud = false; }, 500);
+
+    reloadLockRef.current = true;
+    try {
+      const cloudData = await loadFromCloud(user.id);
+      if (cloudData) {
+        if (cloudData.pedidos)         localStorage.setItem('sep_pedidos',           JSON.stringify(cloudData.pedidos));
+        if (cloudData.cotizaciones)    localStorage.setItem('sep_cotizaciones',      JSON.stringify(cloudData.cotizaciones));
+        if (cloudData.finanzas)        localStorage.setItem('sep_finanzas',          JSON.stringify(cloudData.finanzas));
+        if (cloudData.clientes)        localStorage.setItem('sep_clientes',          JSON.stringify(cloudData.clientes));
+        if (cloudData.productos)       localStorage.setItem('sep_productos',         JSON.stringify(cloudData.productos));
+        if (cloudData.config)          localStorage.setItem('sep_config',            JSON.stringify(cloudData.config));
+        if (cloudData.negocioConfig)   localStorage.setItem('sep_negocio_config',   JSON.stringify(cloudData.negocioConfig));
+        if (cloudData.themeColor)      localStorage.setItem('sep_theme',             JSON.stringify(cloudData.themeColor));
+        if (cloudData.notas)           localStorage.setItem('sep_notas',             JSON.stringify(cloudData.notas));
+        if (cloudData.categoriasNotas) localStorage.setItem('sep_categorias_notas', JSON.stringify(cloudData.categoriasNotas));
+        // Marcar que estamos recargando desde la nube (no guardar de vuelta)
+        window.__isReloadingFromCloud = true;
+        store.reloadFromLocalStorage();
+        // Delay ampliado para que el subscribe no guarde de vuelta
+        setTimeout(() => { window.__isReloadingFromCloud = false; }, 1000);
+      }
+    } catch (e) {
+      console.error('[sync] Error al recargar desde la nube:', e.message);
+    } finally {
+      // Liberar lock después de un pequeño margen de seguridad
+      setTimeout(() => { reloadLockRef.current = false; }, 1200);
     }
   }, [user]);
 
@@ -237,7 +255,7 @@ const AppLayout = () => {
     };
   }, [reloadFromCloud]);
 
-  // Auto-guardar en la nube cada vez que CUALQUIER dato cambia (debounced 1s)
+  // Auto-guardar en la nube cada vez que CUALQUIER dato cambia (debounced 2.5s)
   useEffect(() => {
     if (!user) return;
     const unsub = store.subscribe(() => {
@@ -247,7 +265,7 @@ const AppLayout = () => {
       // Marcar cambios pendientes locales de inmediato
       localStorage.setItem('sep_pending_cloud_sync', 'true');
 
-      // Usamos un debounce de 1s para balance entre velocidad y saturación de API
+      // Debounce de 2.5s — más tiempo para agrupar cambios rápidos y evitar race conditions
       clearTimeout(window.__cloudSaveTimer);
       window.__cloudSaveTimer = setTimeout(async () => {
         const s = store.getState();
@@ -268,10 +286,13 @@ const AppLayout = () => {
           window.__lastCloudSave = Date.now();
           localStorage.setItem('sep_pending_cloud_sync', 'false');
         } catch (err) {
-          console.error('Error al sincronizar con la nube:', err);
+          // saveToCloud ya emitió el evento de error al DiagnosticAgent
+          // Mantenemos el flag de pendiente para reintento posterior
+          console.error('[sync] Error al sincronizar con la nube:', err.message);
+          localStorage.setItem('sep_pending_cloud_sync', 'true');
         }
         window.__cloudSaveTimer = null;
-      }, 1000);
+      }, 2500);
     });
     return () => {
       unsub();
@@ -295,10 +316,12 @@ const AppLayout = () => {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          // Si YO acabo de guardar (< 2.5s), ignoramos el evento para evitar loop
+          // Si YO acabo de guardar (< 5s), ignoramos el evento para evitar loop
+          // Aumentado de 2.5s a 5s para cubrir el nuevo debounce de 2.5s + tiempo de red
           const timeSinceOwnSave = Date.now() - (window.__lastCloudSave || 0);
           const hasPendingTimer  = !!window.__cloudSaveTimer;
-          if (timeSinceOwnSave < 2500 || hasPendingTimer) return;
+          const isPendingSync    = localStorage.getItem('sep_pending_cloud_sync') === 'true';
+          if (timeSinceOwnSave < 5000 || hasPendingTimer || isPendingSync) return;
 
           // Es un cambio de otra sesión → recargamos desde la nube
           console.log('[Realtime] Cambio detectado de otra sesión, recargando...');
@@ -307,6 +330,11 @@ const AppLayout = () => {
       )
       .subscribe((status) => {
         console.log('[Realtime] Estado del canal:', status);
+        if (status === 'SUBSCRIBED') {
+          window.dispatchEvent(new CustomEvent('sep:sync:success', {
+            detail: { detail: 'Realtime conectado correctamente' }
+          }));
+        }
       });
 
     return () => {
@@ -356,6 +384,8 @@ const AppLayout = () => {
       {/* Global overlays */}
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       <CalculadoraFlotante />
+      {/* Agente de diagnóstico y sincronización */}
+      <DiagnosticAgent userId={user?.id} />
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

@@ -426,6 +426,26 @@ const ModalEtiquetasPedidos = ({ etiquetasPedidos = [], onClose }) => {
     </div>
   );
 };
+const getLocalDateString = (offsetDays = 0) => {
+  const d = new Date();
+  if (offsetDays !== 0) d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const getWeekRange = () => {
+  const now = new Date();
+  const currentDay = now.getDay();
+  // Ajuste para que la semana empiece en Lunes (1) y termine en Domingo (0 -> +6)
+  const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + distanceToMonday);
+  
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { start: fmtDate(monday), end: fmtDate(sunday) };
+};
 
 export const PedidosPage = () => {
   const { pedidos, productos: catalogo, config, canalesVenta, etiquetasPedidos, negocioConfig } = useStore();
@@ -433,6 +453,9 @@ export const PedidosPage = () => {
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [filtroCanal, setFiltroCanal] = useState('todos');
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('todas');
+  const [filtroFechaEntrega, setFiltroFechaEntrega] = useState('todos'); // 'todos' | 'hoy' | 'manana' | 'esta_semana' | 'vencidos' | 'personalizado'
+  const [fechaEntregaFiltroVal, setFechaEntregaFiltroVal] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [viewMode, setViewMode] = useState('lista'); // 'lista' | 'kanban'
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(emptyForm());
@@ -462,7 +485,29 @@ export const PedidosPage = () => {
     const matchEstado = filtroEstado === 'todos' || p.estado === filtroEstado;
     const matchCanal = filtroCanal === 'todos' || p.canal === filtroCanal;
     const matchEtiqueta = filtroEtiqueta === 'todas' || (p.etiquetas || []).includes(filtroEtiqueta);
-    return matchSearch && matchEstado && matchCanal && matchEtiqueta;
+    
+    let matchFechaEntrega = true;
+    if (filtroFechaEntrega !== 'todos') {
+      const todayStr = getLocalDateString(0);
+      if (filtroFechaEntrega === 'hoy') {
+        matchFechaEntrega = p.fechaEntrega === todayStr;
+      } else if (filtroFechaEntrega === 'manana') {
+        matchFechaEntrega = p.fechaEntrega === getLocalDateString(1);
+      } else if (filtroFechaEntrega === 'esta_semana') {
+        if (!p.fechaEntrega) {
+          matchFechaEntrega = false;
+        } else {
+          const { start, end } = getWeekRange();
+          matchFechaEntrega = p.fechaEntrega >= start && p.fechaEntrega <= end;
+        }
+      } else if (filtroFechaEntrega === 'vencidos') {
+        matchFechaEntrega = p.fechaEntrega && p.fechaEntrega < todayStr && p.estado !== 'completado' && p.estado !== 'cancelado';
+      } else if (filtroFechaEntrega === 'personalizado') {
+        matchFechaEntrega = p.fechaEntrega === fechaEntregaFiltroVal;
+      }
+    }
+    
+    return matchSearch && matchEstado && matchCanal && matchEtiqueta && matchFechaEntrega;
   });
 
   const subtotal = form.productos.reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0);
@@ -710,102 +755,329 @@ export const PedidosPage = () => {
         </div>
       </div>
 
-      <div className="filters-bar" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
+      {/* Contenedor de filtros rediseñado y compacto */}
+      <div className="filters-bar" style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'stretch', marginBottom: 16 }}>
+        {/* Barra principal siempre visible */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <div className="search-box">
-            <span>🔍</span>
-            <input
-              placeholder="Buscar por cliente o ID..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', flex: 1, minWidth: 0 }}>
+            {/* Buscador */}
+            <div className="search-box" style={{ margin: 0, flex: '1 1 240px', minWidth: 180 }}>
+              <span>🔍</span>
+              <input
+                placeholder="Buscar por cliente o ID..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            
+            {/* Selector de entrega */}
+            <div className="filter-select-wrapper" style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: 6, 
+              background: 'hsl(var(--bg))', 
+              padding: '6px 12px', 
+              borderRadius: 10, 
+              border: '1px solid hsl(var(--border))',
+              height: 38,
+              boxSizing: 'border-box'
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 4 }}>
+                📅 Entrega:
+              </span>
+              <select
+                value={filtroFechaEntrega}
+                onChange={e => setFiltroFechaEntrega(e.target.value)}
+                style={{ 
+                  border: 'none', 
+                  background: 'transparent', 
+                  fontSize: 13, 
+                  fontWeight: 500, 
+                  outline: 'none', 
+                  cursor: 'pointer', 
+                  color: 'hsl(var(--foreground))',
+                  paddingRight: 10
+                }}
+              >
+                <option value="todos">Cualquier fecha</option>
+                <option value="hoy">Hoy</option>
+                <option value="manana">Mañana</option>
+                <option value="esta_semana">Esta semana</option>
+                <option value="vencidos">⚠️ Vencidos / Atrasados</option>
+                <option value="personalizado">📅 Fecha específica...</option>
+              </select>
+            </div>
+
+            {/* Calendario condicional para fecha específica */}
+            {filtroFechaEntrega === 'personalizado' && (
+              <input
+                type="date"
+                className="form-input"
+                style={{ 
+                  width: 'auto', 
+                  padding: '4px 10px', 
+                  height: 38, 
+                  fontSize: 13, 
+                  borderRadius: 10,
+                  boxSizing: 'border-box'
+                }}
+                value={fechaEntregaFiltroVal}
+                onChange={e => setFechaEntregaFiltroVal(e.target.value)}
+              />
+            )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--muted))', flexShrink: 0 }}>Estado:</span>
-            <div className="quote-tabs-container" style={{ flex: 1, minWidth: 0, margin: 0 }}>
-              <div className="quote-tabs">
-                {['todos', ...ESTADOS].map(e => (
-                  <button
-                    key={e}
-                    className={`tab ${filtroEstado === e ? 'active' : ''}`}
-                    onClick={() => setFiltroEstado(e)}
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Botón Filtros Avanzados */}
+            <button
+              type="button"
+              className={`btn btn-sm ${showAdvanced ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 6, 
+                borderRadius: 10, 
+                padding: '0 16px', 
+                height: 38, 
+                fontSize: 13 
+              }}
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              <span>🎛️</span>
+              <span>Filtros Avanzados</span>
+              {((filtroEstado !== 'todos' ? 1 : 0) + (filtroCanal !== 'todos' ? 1 : 0) + (filtroEtiqueta !== 'todas' ? 1 : 0)) > 0 && (
+                <span style={{
+                  background: showAdvanced ? 'white' : 'hsl(var(--primary))',
+                  color: showAdvanced ? 'hsl(var(--primary))' : 'white',
+                  borderRadius: 99,
+                  padding: '1px 6px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  marginLeft: 4
+                }}>
+                  {(filtroEstado !== 'todos' ? 1 : 0) + (filtroCanal !== 'todos' ? 1 : 0) + (filtroEtiqueta !== 'todas' ? 1 : 0)}
+                </span>
+              )}
+            </button>
+
+            {/* Limpiar filtros */}
+            {(search.trim() !== '' || filtroEstado !== 'todos' || filtroCanal !== 'todos' || filtroEtiqueta !== 'todas' || filtroFechaEntrega !== 'todos') && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                style={{ 
+                  color: 'hsl(var(--danger))', 
+                  fontSize: 13, 
+                  padding: '0 12px', 
+                  height: 38, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 4 
+                }}
+                onClick={() => {
+                  setSearch('');
+                  setFiltroEstado('todos');
+                  setFiltroCanal('todos');
+                  setFiltroEtiqueta('todas');
+                  setFiltroFechaEntrega('todos');
+                  setFechaEntregaFiltroVal('');
+                }}
+                title="Limpiar todos los filtros"
+              >
+                <span>🧹</span>
+                <span>Limpiar</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Resumen de Filtros Activos (si el panel avanzado está cerrado) */}
+        {!showAdvanced && (
+          (() => {
+            const activeChips = [];
+            if (filtroEstado !== 'todos') {
+              activeChips.push({
+                label: `Estado: ${filtroEstado.replace('_', ' ')}`,
+                icon: '🚥',
+                onClear: () => setFiltroEstado('todos')
+              });
+            }
+            if (filtroCanal !== 'todos') {
+              const cObj = (canalesVenta || []).find(c => c.id === filtroCanal);
+              activeChips.push({
+                label: `Origen: ${cObj ? `${cObj.emoji || ''} ${cObj.nombre}` : filtroCanal}`,
+                icon: '🌐',
+                onClear: () => setFiltroCanal('todos'),
+                color: cObj?.color,
+                text: cObj?.text
+              });
+            }
+            if (filtroEtiqueta !== 'todas') {
+              const eObj = (etiquetasPedidos || []).find(e => e.id === filtroEtiqueta);
+              activeChips.push({
+                label: `Etiqueta: ${eObj ? `${eObj.emoji || ''} ${eObj.nombre}` : filtroEtiqueta}`,
+                icon: '🏷️',
+                onClear: () => setFiltroEtiqueta('todas'),
+                color: eObj?.color,
+                text: eObj?.text
+              });
+            }
+
+            if (activeChips.length === 0) return null;
+
+            return (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'hsl(var(--muted))' }}>Filtros activos:</span>
+                {activeChips.map((chip, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '3px 10px',
+                      borderRadius: 99,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      background: chip.color || 'hsl(var(--primary-light))',
+                      color: chip.text || 'hsl(var(--primary-dark))',
+                      border: chip.color ? 'none' : '1px solid hsl(var(--border))'
+                    }}
                   >
-                    {e === 'todos' ? 'Todos' : e.replace('_', ' ')}
+                    <span>{chip.icon} {chip.label}</span>
+                    <button
+                      type="button"
+                      style={{ 
+                        border: 'none', 
+                        background: 'transparent', 
+                        cursor: 'pointer', 
+                        fontSize: 12, 
+                        padding: '0 2px', 
+                        color: 'inherit',
+                        display: 'inline-flex',
+                        alignItems: 'center'
+                      }}
+                      onClick={chip.onClear}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            );
+          })()
+        )}
+
+        {/* Panel Avanzado Colapsable */}
+        {showAdvanced && (
+          <div style={{
+            background: 'hsl(var(--card))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: 'var(--radius)',
+            padding: '16px',
+            marginTop: '4px',
+            boxShadow: 'var(--shadow-sm)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+            animation: 'fadeIn 0.2s ease'
+          }}>
+            {/* Estado */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted))' }}>🚥 ESTADO DEL PEDIDO:</span>
+              <div className="quote-tabs-container" style={{ margin: 0 }}>
+                <div className="quote-tabs">
+                  {['todos', ...ESTADOS].map(e => (
+                    <button
+                      key={e}
+                      type="button"
+                      className={`tab ${filtroEstado === e ? 'active' : ''}`}
+                      onClick={() => setFiltroEstado(e)}
+                    >
+                      {e === 'todos' ? 'Todos' : e.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Origen */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted))' }}>🌐 ORIGEN / CANAL DE VENTA:</span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: 11, padding: '2px 8px', color: 'hsl(var(--primary))', height: 'auto', width: 'auto' }}
+                  onClick={() => setModal('canales')}
+                >
+                  ⚙️ Gestionar canales
+                </button>
+              </div>
+              <div className="quote-tabs-container" style={{ margin: 0 }}>
+                <div className="quote-tabs">
+                  <button
+                    type="button"
+                    className={`tab ${filtroCanal === 'todos' ? 'active' : ''}`}
+                    onClick={() => setFiltroCanal('todos')}
+                  >
+                    Todos
+                  </button>
+                  {(canalesVenta || []).map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`tab ${filtroCanal === c.id ? 'active' : ''}`}
+                      onClick={() => setFiltroCanal(c.id)}
+                    >
+                      {c.emoji || '🌐'} {c.nombre}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Etiquetas */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted))' }}>🏷️ ETIQUETAS:</span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: 11, padding: '2px 8px', color: 'hsl(var(--primary))', height: 'auto', width: 'auto' }}
+                  onClick={() => setModal('etiquetas')}
+                >
+                  ⚙️ Gestionar etiquetas
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${filtroEtiqueta === 'todas' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: 11, padding: '4px 12px', borderRadius: 99 }}
+                  onClick={() => setFiltroEtiqueta('todas')}
+                >Todas</button>
+                {(etiquetasPedidos || []).map(e => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => setFiltroEtiqueta(filtroEtiqueta === e.id ? 'todas' : e.id)}
+                    style={{
+                      padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+                      cursor: 'pointer', border: '1.5px solid',
+                      background: filtroEtiqueta === e.id ? e.color : 'transparent',
+                      color: filtroEtiqueta === e.id ? e.text : 'hsl(var(--muted))',
+                      borderColor: filtroEtiqueta === e.id ? e.text : 'hsl(var(--border))',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {e.emoji || '🏷️'} {e.nombre}
                   </button>
                 ))}
               </div>
             </div>
           </div>
-        </div>
-
-        <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 10, borderTop: '1px solid hsl(var(--border) / 0.5)', paddingTop: 10, width: '100%' }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            🌐 Origen:
-          </span>
-          <div className="quote-tabs-container" style={{ flex: 1, minWidth: 0, margin: 0 }}>
-            <div className="quote-tabs">
-              <button
-                className={`tab ${filtroCanal === 'todos' ? 'active' : ''}`}
-                onClick={() => setFiltroCanal('todos')}
-              >
-                Todos
-              </button>
-              {(canalesVenta || []).map(c => (
-                <button
-                  key={c.id}
-                  className={`tab ${filtroCanal === c.id ? 'active' : ''}`}
-                  onClick={() => setFiltroCanal(c.id)}
-                >
-                  {c.emoji || '🌐'} {c.nombre}
-                </button>
-              ))}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-icon btn-sm"
-            style={{ borderRadius: '50%', width: 30, height: 30, padding: 0, display: 'grid', placeItems: 'center', flexShrink: 0 }}
-            onClick={() => setModal('canales')}
-            title="Gestionar canales de venta"
-          >
-            ⚙️
-          </button>
-        </div>
-      </div>
-
-      {/* Etiquetas filter */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16, paddingTop: 4, alignItems: 'center' }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted))', alignSelf: 'center' }}>🏷️ Etiqueta:</span>
-        <button
-          className={`btn btn-sm ${filtroEtiqueta === 'todas' ? 'btn-primary' : 'btn-ghost'}`}
-          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 99 }}
-          onClick={() => setFiltroEtiqueta('todas')}
-        >Todas</button>
-        {(etiquetasPedidos || []).map(e => (
-          <button
-            key={e.id}
-            onClick={() => setFiltroEtiqueta(filtroEtiqueta === e.id ? 'todas' : e.id)}
-            style={{
-              padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
-              cursor: 'pointer', border: '1.5px solid',
-              background: filtroEtiqueta === e.id ? e.color : 'transparent',
-              color: filtroEtiqueta === e.id ? e.text : 'hsl(var(--muted))',
-              borderColor: filtroEtiqueta === e.id ? e.text : 'hsl(var(--border))',
-              transition: 'all 0.15s',
-            }}
-          >
-            {e.emoji || '🏷️'} {e.nombre}
-          </button>
-        ))}
-        <button
-          type="button"
-          className="btn btn-ghost btn-icon btn-sm"
-          style={{ borderRadius: '50%', width: 26, height: 26, padding: 0, display: 'grid', placeItems: 'center', flexShrink: 0, marginLeft: 4 }}
-          onClick={() => setModal('etiquetas')}
-          title="Gestionar etiquetas de pedidos"
-        >
-          ⚙️
-        </button>
+        )}
       </div>
 
       {viewMode === 'kanban' ? (

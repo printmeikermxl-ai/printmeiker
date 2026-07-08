@@ -39,7 +39,16 @@ export const loadFromCloud = async (userId) => {
   }
 };
 
-export const saveToCloud = async (userId, data) => {
+// Reintentos con backoff exponencial: 1s, 2s, 4s
+const MAX_RETRIES = 3;
+const RETRY_BASE_MS = 1000;
+
+export const saveToCloud = async (userId, data, _attempt = 1) => {
+  // Emitir evento de pendiente en el primer intento
+  if (_attempt === 1) {
+    window.dispatchEvent(new CustomEvent('sep:sync:pending'));
+  }
+
   try {
     const { error } = await supabase
       .from('user_data')
@@ -48,8 +57,36 @@ export const saveToCloud = async (userId, data) => {
         { onConflict: 'user_id' }
       );
     if (error) throw error;
+
+    // ✅ Éxito — notificar al agente
+    const counts = `${data.pedidos?.length ?? 0} pedidos, ${data.cotizaciones?.length ?? 0} cotizaciones`;
+    window.dispatchEvent(new CustomEvent('sep:sync:success', { detail: { detail: counts } }));
   } catch (e) {
-    console.warn('No se pudo guardar en la nube:', e.message);
+    console.warn(`[sync] Intento ${_attempt}/${MAX_RETRIES} fallido:`, e.message);
+
+    if (_attempt < MAX_RETRIES) {
+      // Notificar al agente del reintento
+      window.dispatchEvent(new CustomEvent('sep:sync:retry', {
+        detail: { attempt: _attempt + 1, max: MAX_RETRIES }
+      }));
+
+      // Esperar con backoff exponencial
+      const delay = RETRY_BASE_MS * Math.pow(2, _attempt - 1);
+      await new Promise(r => setTimeout(r, delay));
+
+      // Reintentar recursivamente
+      return saveToCloud(userId, data, _attempt + 1);
+    }
+
+    // ❌ Agotamos reintentos — notificar al agente y lanzar error
+    window.dispatchEvent(new CustomEvent('sep:sync:error', {
+      detail: { message: 'Error al guardar en la nube', detail: e.message }
+    }));
+    window.dispatchEvent(new CustomEvent('sep:sync:retryfail', {
+      detail: { message: e.message }
+    }));
+    console.error('[sync] Falló tras', MAX_RETRIES, 'intentos:', e.message);
+    throw e; // re-lanzar para que App.jsx pueda marcar el flag de pendiente
   }
 };
 
