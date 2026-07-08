@@ -78,7 +78,7 @@ const getPrimaryColor = () => {
 };
 
 export const CotizacionesPage = () => {
-  const { cotizaciones, productos: catalogo, config, negocioConfig, clientes, etiquetasPersonalizadas, canalesVenta } = useStore();
+  const { cotizaciones, productos: catalogo, combos = [], config, negocioConfig, clientes, etiquetasPersonalizadas, canalesVenta } = useStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
@@ -235,7 +235,21 @@ export const CotizacionesPage = () => {
     return matchSearch && matchEstado;
   });
 
-  const subtotal = form.productos.reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0);
+  const calcularDescuentoLinea = (l) => {
+    if (!l.descuentoActivo || !l.descuentoValor) return 0;
+    const baseVal = Number(l.cantidad) * Number(l.precio);
+    if (l.descuentoTipo === 'porcentaje') {
+      return (baseVal * Number(l.descuentoValor)) / 100;
+    } else {
+      return Math.min(baseVal, Number(l.descuentoValor));
+    }
+  };
+
+  const subtotal = form.productos.reduce((s, l) => {
+    const baseVal = Number(l.cantidad) * Number(l.precio);
+    const descVal = calcularDescuentoLinea(l);
+    return s + (baseVal - descVal);
+  }, 0);
   const totalExtras = sumExtras(form.extras);
   const baseTotal = subtotal + totalExtras;
   const ivaAmt = form.aplicarIva ? baseTotal * (Number(form.ivaPct || 0) / 100) : 0;
@@ -403,7 +417,21 @@ export const CotizacionesPage = () => {
 
   // ── Quote Document Component ─────────────────────────────────────────────
   const QuoteDocument = ({ formData, quoteId, catalogo: catalogoRef = [] }) => {
-    const sub = formData.productos.reduce((s, l) => s + Number(l.cantidad) * Number(l.precio), 0);
+    const calcularDescuentoDoc = (l) => {
+      if (!l.descuentoActivo || !l.descuentoValor) return 0;
+      const baseVal = Number(l.cantidad) * Number(l.precio);
+      if (l.descuentoTipo === 'porcentaje') {
+        return (baseVal * Number(l.descuentoValor)) / 100;
+      } else {
+        return Math.min(baseVal, Number(l.descuentoValor));
+      }
+    };
+
+    const sub = formData.productos.reduce((s, l) => {
+      const baseVal = Number(l.cantidad) * Number(l.precio);
+      const descVal = calcularDescuentoDoc(l);
+      return s + (baseVal - descVal);
+    }, 0);
     const extrasArr = formData.extras || [];
     const extrasTotal = sumExtras(extrasArr);
     const base = sub + extrasTotal;
@@ -541,10 +569,17 @@ export const CotizacionesPage = () => {
                       </td>
                     )}
                     <td className="qd-td qd-td-no">{String(i + 1).padStart(2, '0')}</td>
-                    <td className="qd-td qd-td-desc">{line.nombre || '—'}</td>
+                    <td className="qd-td qd-td-desc">
+                      <div>{line.nombre || '—'}</div>
+                      {line.descuentoActivo && Number(line.descuentoValor) > 0 && (
+                        <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>
+                          Descuento: -{line.descuentoTipo === 'porcentaje' ? `${line.descuentoValor}%` : fmt(line.descuentoValor)}
+                        </div>
+                      )}
+                    </td>
                     <td className="qd-td qd-td-price">{fmt(line.precio)}</td>
                     <td className="qd-td qd-td-qty">{line.cantidad}</td>
-                    <td className="qd-td qd-td-total">{fmt(Number(line.cantidad) * Number(line.precio))}</td>
+                    <td className="qd-td qd-td-total">{fmt(Number(line.cantidad) * Number(line.precio) - calcularDescuentoDoc(line))}</td>
                   </tr>
                 );
               })}
@@ -944,7 +979,7 @@ export const CotizacionesPage = () => {
                 {/* Sección: Productos */}
                 <div className="cot-section-label">🛒 Productos / Servicios</div>
                 <div className="form-group">
-                  <ProductLinesInput lines={form.productos} onChange={lines => set('productos', lines)} productos={catalogo} />
+                  <ProductLinesInput lines={form.productos} onChange={lines => set('productos', lines)} productos={catalogo} combos={combos} />
                 </div>
 
                 {/* ── Cargos adicionales (múltiples) ── */}

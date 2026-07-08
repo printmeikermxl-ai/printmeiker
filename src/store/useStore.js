@@ -136,6 +136,7 @@ const seedEtiquetasPedidos = [
 let listeners = [];
 let state = {
   productos: load('sep_productos', seedProductos),
+  combos: load('sep_combos', []),
   pedidos: load('sep_pedidos', seedPedidos),
   cotizaciones: load('sep_cotizaciones', seedCotizaciones),
   finanzas: load('sep_finanzas', seedFinanzas),
@@ -219,6 +220,23 @@ export const store = {
     const productos = state.productos.filter(x => x.id !== id);
     save('sep_productos', productos);
     setState({ productos });
+  },
+
+  // ── combos ──
+  addCombo: (c) => {
+    const combos = [...state.combos, { ...c, id: 'combo-' + Date.now().toString() }];
+    save('sep_combos', combos);
+    setState({ combos });
+  },
+  updateCombo: (id, c) => {
+    const combos = state.combos.map(x => x.id === id ? { ...x, ...c } : x);
+    save('sep_combos', combos);
+    setState({ combos });
+  },
+  deleteCombo: (id) => {
+    const combos = state.combos.filter(x => x.id !== id);
+    save('sep_combos', combos);
+    setState({ combos });
   },
 
   // ── pedidos ──
@@ -502,6 +520,7 @@ export const store = {
     }
     const newState = {
       productos:              load('sep_productos', seedProductos),
+      combos:                 load('sep_combos', []),
       pedidos:                load('sep_pedidos', seedPedidos),
       cotizaciones:           load('sep_cotizaciones', seedCotizaciones),
       finanzas:               load('sep_finanzas', seedFinanzas),
@@ -890,6 +909,9 @@ window.addEventListener('storage', (e) => {
         break;
       case 'sep_productos':
         setState({ productos: JSON.parse(e.newValue) });
+        break;
+      case 'sep_combos':
+        setState({ combos: JSON.parse(e.newValue) });
         break;
       case 'sep_notas':
         setState({ notas: JSON.parse(e.newValue) });

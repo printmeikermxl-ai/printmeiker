@@ -146,6 +146,7 @@ const AppLayout = () => {
         if (cloudData.finanzas)        localStorage.setItem('sep_finanzas',          JSON.stringify(cloudData.finanzas));
         if (cloudData.clientes)        localStorage.setItem('sep_clientes',          JSON.stringify(cloudData.clientes));
         if (cloudData.productos)       localStorage.setItem('sep_productos',         JSON.stringify(cloudData.productos));
+        if (cloudData.combos)          localStorage.setItem('sep_combos',            JSON.stringify(cloudData.combos));
         if (cloudData.config)          localStorage.setItem('sep_config',            JSON.stringify(cloudData.config));
         if (cloudData.negocioConfig)   localStorage.setItem('sep_negocio_config',   JSON.stringify(cloudData.negocioConfig));
         if (cloudData.themeColor)      localStorage.setItem('sep_theme',             JSON.stringify(cloudData.themeColor));
@@ -181,6 +182,7 @@ const AppLayout = () => {
             finanzas:      s.finanzas,
             clientes:      s.clientes,
             productos:     s.productos,
+            combos:        s.combos,
             config:        s.config,
             negocioConfig: s.negocioConfig,
             themeColor:    s.themeColor,
@@ -276,6 +278,7 @@ const AppLayout = () => {
             finanzas:        s.finanzas,
             clientes:        s.clientes,
             productos:       s.productos,
+            combos:          s.combos,
             config:          s.config,
             negocioConfig:   s.negocioConfig,
             themeColor:      s.themeColor,

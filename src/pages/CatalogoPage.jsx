@@ -377,19 +377,27 @@ const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export const CatalogoPage = () => {
-  const { productos, categoriasProducto } = useStore();
+  const { productos, combos = [], categoriasProducto } = useStore();
+  const [subVista, setSubVista] = useState('productos'); // 'productos' | 'combos'
   const [search, setSearch] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('todos');
-  const [modal, setModal] = useState(null); // null | 'create' | 'edit' | 'categorias'
+  const [modal, setModal] = useState(null); // null | 'create' | 'edit' | 'categorias' | 'createCombo' | 'editCombo'
   const [form, setForm] = useState(emptyForm());
+  const [comboForm, setComboForm] = useState({ nombre: '', descripcion: '', precio: '', activo: true });
   const [editId, setEditId] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [confirmCombo, setConfirmCombo] = useState(null);
   const [view, setView] = useState('grid');
 
   const filtered = productos.filter(p => {
     const matchSearch = p.nombre.toLowerCase().includes(search.toLowerCase()) || p.descripcion?.toLowerCase().includes(search.toLowerCase());
     const matchCat = filtroCategoria === 'todos' || p.categoria === filtroCategoria;
     return matchSearch && matchCat;
+  });
+
+  const filteredCombos = combos.filter(c => {
+    const matchSearch = c.nombre.toLowerCase().includes(search.toLowerCase()) || c.descripcion?.toLowerCase().includes(search.toLowerCase());
+    return matchSearch;
   });
 
   const openCreate = () => {
@@ -421,6 +429,34 @@ export const CatalogoPage = () => {
     if (editId) store.updateProducto(editId, data);
     else store.addProducto(data);
     setModal(null);
+  };
+
+  const handleSaveCombo = (e) => {
+    e.preventDefault();
+    const data = {
+      ...comboForm,
+      precio: Number(comboForm.precio),
+    };
+    if (editId) store.updateCombo(editId, data);
+    else store.addCombo(data);
+    setModal(null);
+  };
+
+  const openCreateCombo = () => {
+    setComboForm({ nombre: '', descripcion: '', precio: '', activo: true });
+    setEditId(null);
+    setModal('createCombo');
+  };
+
+  const openEditCombo = (c) => {
+    setComboForm({
+      nombre: c.nombre,
+      descripcion: c.descripcion || '',
+      precio: c.precio,
+      activo: c.activo !== false,
+    });
+    setEditId(c.id);
+    setModal('editCombo');
   };
 
   const handleFotoUpload = (e) => {
@@ -456,197 +492,339 @@ export const CatalogoPage = () => {
       <div className="page-header">
         <div>
           <h2 className="page-title">📚 Catálogo</h2>
-          <p className="page-subtitle">{productos.length} productos registrados</p>
+          <p className="page-subtitle">
+            {subVista === 'productos' ? `${productos.length} productos registrados` : `${combos.length} paquetes registrados`}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className={`btn ${view === 'grid' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('grid')}>⊞ Grid</button>
           <button className={`btn ${view === 'table' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('table')}>☰ Lista</button>
-          <button className="btn btn-secondary" onClick={() => setModal('categorias')} title="Gestionar categorías">📂 Categorías</button>
-          <button className="btn btn-primary" onClick={openCreate}>+ Nuevo producto</button>
+          {subVista === 'productos' && (
+            <button className="btn btn-secondary" onClick={() => setModal('categorias')} title="Gestionar categorías">📂 Categorías</button>
+          )}
+          {subVista === 'productos' ? (
+            <button className="btn btn-primary" onClick={openCreate}>+ Nuevo producto</button>
+          ) : (
+            <button className="btn btn-primary" onClick={openCreateCombo}>+ Nuevo combo</button>
+          )}
         </div>
+      </div>
+
+      {/* Pestañas de sub-vista */}
+      <div style={{ display: 'flex', gap: 6, margin: '-10px 0 20px', borderBottom: '1px solid hsl(var(--border))', paddingBottom: 8 }}>
+        <button
+          type="button"
+          onClick={() => setSubVista('productos')}
+          className={`btn ${subVista === 'productos' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ padding: '6px 16px', borderRadius: 8, fontSize: 13, height: 'auto', width: 'auto' }}
+        >
+          📦 Productos individuales ({productos.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubVista('combos')}
+          className={`btn ${subVista === 'combos' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ padding: '6px 16px', borderRadius: 8, fontSize: 13, height: 'auto', width: 'auto' }}
+        >
+          🎁 Paquetes / Combos ({combos.length})
+        </button>
       </div>
 
       {/* Filters */}
       <div className="filters-bar">
         <div className="search-box">
           <span>🔍</span>
-          <input placeholder="Buscar producto..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input 
+            placeholder={subVista === 'productos' ? "Buscar producto..." : "Buscar paquete..."} 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+          />
         </div>
-        <div className="tabs">
-          <button className={`tab ${filtroCategoria === 'todos' ? 'active' : ''}`} onClick={() => setFiltroCategoria('todos')}>Todos</button>
-          {categoriasUsadas.map(c => {
-            const cat = categoriasProducto.find(x => x.nombre === c);
-            return (
-              <button key={c} className={`tab ${filtroCategoria === c ? 'active' : ''}`} onClick={() => setFiltroCategoria(c)}>
-                {cat ? `${cat.emoji} ${cat.nombre}` : c}
-              </button>
-            );
-          })}
-        </div>
+        {subVista === 'productos' && (
+          <div className="tabs">
+            <button className={`tab ${filtroCategoria === 'todos' ? 'active' : ''}`} onClick={() => setFiltroCategoria('todos')}>Todos</button>
+            {categoriasUsadas.map(c => {
+              const cat = categoriasProducto.find(x => x.nombre === c);
+              return (
+                <button key={c} className={`tab ${filtroCategoria === c ? 'active' : ''}`} onClick={() => setFiltroCategoria(c)}>
+                  {cat ? `${cat.emoji} ${cat.nombre}` : c}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* ── Empty state ── */}
-      {filtered.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">📚</div>
-          <h3>Sin productos</h3>
-          <p>Agrega productos a tu catálogo para usarlos en pedidos y cotizaciones.</p>
-          <button className="btn btn-primary" onClick={openCreate}>Agregar producto</button>
-        </div>
-      ) : view === 'grid' ? (
+      {/* ── SECCIÓN DE PRODUCTOS ── */}
+      {subVista === 'productos' && (
+        filtered.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">📚</div>
+            <h3>Sin productos</h3>
+            <p>Agrega productos a tu catálogo para usarlos en pedidos y cotizaciones.</p>
+            <button className="btn btn-primary" onClick={openCreate}>Agregar producto</button>
+          </div>
+        ) : view === 'grid' ? (
+          /* ── PRODUCT GRID VIEW ── */
+          <div className="product-grid">
+            {filtered.map(p => {
+              const cat = categoriasProducto.find(c => c.nombre === p.categoria);
+              return (
+                <div key={p.id} className="product-card" style={{ opacity: p.activo ? 1 : 0.55 }}>
+                  <div style={{ margin: '-16px -16px 12px -16px', overflow: 'hidden', borderRadius: '12px 12px 0 0', height: 140, background: 'hsl(var(--bg))', display: 'grid', placeItems: 'center', borderBottom: '1px solid hsl(var(--border) / 0.5)' }}>
+                    {p.foto ? (
+                      <img src={p.foto} alt={p.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ fontSize: 44, opacity: 0.3 }}>📦</div>
+                    )}
+                  </div>
+                  <div className="product-card-header">
+                    <div>
+                      <div className="product-name">{p.nombre}</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                        {cat ? (
+                          <span style={{
+                            padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+                            background: cat.color, color: cat.text,
+                          }}>{cat.emoji} {cat.nombre}</span>
+                        ) : p.categoria ? (
+                          <span className="product-category">{p.categoria}</span>
+                        ) : null}
+                        {p.tieneMayoreo && p.mayoreoMinPiezas && p.mayoreo_precio && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
+                            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
+                            color: '#fff',
+                          }}>
+                            📦 Mayoreo desde {p.mayoreoMinPiezas} pzs
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                      <button
+                        className={`btn btn-sm ${p.activo ? 'btn-secondary' : 'btn-ghost'}`}
+                        onClick={() => toggleActivo(p)}
+                        title={p.activo ? 'Desactivar' : 'Activar'}
+                      >
+                        {p.activo ? '✅' : '⭕'}
+                      </button>
+                    </div>
+                  </div>
 
-        /* ── GRID VIEW ── */
-        <div className="product-grid">
-          {filtered.map(p => {
-            const cat = categoriasProducto.find(c => c.nombre === p.categoria);
-            return (
-              <div key={p.id} className="product-card" style={{ opacity: p.activo ? 1 : 0.55 }}>
-                {/* Foto del producto */}
-                <div style={{ margin: '-16px -16px 12px -16px', overflow: 'hidden', borderRadius: '12px 12px 0 0', height: 140, background: 'hsl(var(--bg))', display: 'grid', placeItems: 'center', borderBottom: '1px solid hsl(var(--border) / 0.5)' }}>
-                  {p.foto ? (
-                    <img src={p.foto} alt={p.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ fontSize: 44, opacity: 0.3 }}>📦</div>
-                  )}
+                  {p.descripcion && <p className="product-desc">{p.descripcion}</p>}
+
+                  <div style={{ marginTop: 8 }}>
+                    <div className="product-price">{fmt(p.precio)}<span style={{ fontSize: 12, fontWeight: 400, color: 'hsl(var(--muted))', marginLeft: 4 }}>/ pieza</span></div>
+                    {p.costoProd != null && p.costoProd > 0 && (
+                      <div style={{ marginTop: 4, fontSize: 12, color: 'hsl(var(--muted))', display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span>🛠️ Costo prod:</span>
+                        <span style={{ fontWeight: 700, color: 'hsl(var(--danger))' }}>{fmt(p.costoProd)}/pz</span>
+                        <span style={{ color: 'hsl(var(--success))' }}>→ ganancia: {fmt(p.precio - p.costoProd)}/pz</span>
+                      </div>
+                    )}
+                    {p.tieneMayoreo && p.mayoreoMinPiezas && p.mayoreo_precio && (
+                      <div style={{
+                        marginTop: 6, padding: '6px 10px', borderRadius: 8,
+                        background: 'hsl(var(--primary-light))', display: 'flex',
+                        alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                      }}>
+                        <span style={{ fontSize: 12, color: 'hsl(var(--primary-dark))', fontWeight: 600 }}>📦 Mayoreo (+{p.mayoreoMinPiezas} pzs)</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--primary))' }}>
+                          {fmt(p.mayoreo_precio)}<span style={{ fontSize: 11, fontWeight: 400 }}>/pz</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="product-actions">
+                    <button className="btn btn-secondary btn-sm" onClick={() => openEdit(p)}>✏️ Editar</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setConfirm({ id: p.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── PRODUCT TABLE VIEW ── */
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Categoría</th>
+                  <th>Descripción</th>
+                  <th>Precio unitario</th>
+                  <th>Mayoreo</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(p => {
+                  const cat = categoriasProducto.find(c => c.nombre === p.categoria);
+                  return (
+                    <tr key={p.id}>
+                      <td style={{ fontWeight: 600 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {p.foto && (
+                            <img src={p.foto} alt={p.nombre} style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid hsl(var(--border))' }} />
+                          )}
+                          {p.nombre}
+                        </div>
+                      </td>
+                      <td>
+                        {cat ? (
+                          <span style={{
+                            padding: '2px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+                            background: cat.color, color: cat.text,
+                          }}>{cat.emoji} {cat.nombre}</span>
+                        ) : (
+                          <span style={{ fontSize: 12, background: 'hsl(var(--bg))', padding: '2px 8px', borderRadius: 99 }}>
+                            {p.categoria || '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 13, color: 'hsl(var(--muted))' }}>{p.descripcion || '—'}</td>
+                      <td><strong style={{ color: 'hsl(var(--primary))' }}>{fmt(p.precio)}</strong></td>
+                      <td>
+                        {p.tieneMayoreo && p.mayoreoMinPiezas && p.mayoreo_precio ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'hsl(var(--primary))' }}>{fmt(p.mayoreo_precio)}/pz</span>
+                            <span style={{ fontSize: 11, color: 'hsl(var(--muted))' }}>desde {p.mayoreoMinPiezas} pzs</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'hsl(var(--muted))', fontSize: 13 }}>—</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${p.activo ? 'badge-completado' : 'badge-cancelado'}`}>
+                          {p.activo ? '✅ Activo' : '❌ Inactivo'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="btn btn-secondary btn-icon btn-sm" onClick={() => openEdit(p)}>✏️</button>
+                          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => toggleActivo(p)}>{p.activo ? '⭕' : '✅'}</button>
+                          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirm({ id: p.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {/* ── SECCIÓN DE COMBOS / PAQUETES ── */}
+      {subVista === 'combos' && (
+        filteredCombos.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">🎁</div>
+            <h3>Sin paquetes ni combos</h3>
+            <p>Agrega combos o paquetes agrupando productos para usarlos en tus cotizaciones.</p>
+            <button className="btn btn-primary" onClick={openCreateCombo}>Crear primer combo</button>
+          </div>
+        ) : view === 'grid' ? (
+          /* ── COMBOS GRID VIEW ── */
+          <div className="product-grid">
+            {filteredCombos.map(c => (
+              <div key={c.id} className="product-card" style={{ opacity: c.activo ? 1 : 0.55 }}>
+                <div style={{ 
+                  margin: '-16px -16px 12px -16px', 
+                  overflow: 'hidden', 
+                  borderRadius: '12px 12px 0 0', 
+                  height: 140, 
+                  background: 'hsl(var(--bg))', 
+                  display: 'grid', 
+                  placeItems: 'center', 
+                  borderBottom: '1px solid hsl(var(--border) / 0.5)',
+                  position: 'relative'
+                }}>
+                  <div style={{ fontSize: 44, opacity: 0.35 }}>🎁</div>
+                  <span style={{
+                    position: 'absolute',
+                    top: 10,
+                    left: 10,
+                    background: 'hsl(var(--primary))',
+                    color: '#fff',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 99
+                  }}>
+                    PAQUETE / COMBO
+                  </span>
                 </div>
                 <div className="product-card-header">
                   <div>
-                    <div className="product-name">{p.nombre}</div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                      {cat ? (
-                        <span style={{
-                          padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
-                          background: cat.color, color: cat.text,
-                        }}>{cat.emoji} {cat.nombre}</span>
-                      ) : p.categoria ? (
-                        <span className="product-category">{p.categoria}</span>
-                      ) : null}
-                      {p.tieneMayoreo && p.mayoreoMinPiezas && p.mayoreo_precio && (
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
-                          background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
-                          color: '#fff',
-                        }}>
-                          📦 Mayoreo desde {p.mayoreoMinPiezas} pzs
-                        </span>
-                      )}
-                    </div>
+                    <div className="product-name">{c.nombre}</div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                    <button
-                      className={`btn btn-sm ${p.activo ? 'btn-secondary' : 'btn-ghost'}`}
-                      onClick={() => toggleActivo(p)}
-                      title={p.activo ? 'Desactivar' : 'Activar'}
-                    >
-                      {p.activo ? '✅' : '⭕'}
-                    </button>
-                  </div>
+                  <button
+                    className={`btn btn-sm ${c.activo ? 'btn-secondary' : 'btn-ghost'}`}
+                    onClick={() => store.updateCombo(c.id, { activo: !c.activo })}
+                    title={c.activo ? 'Desactivar' : 'Activar'}
+                  >
+                    {c.activo ? '✅' : '⭕'}
+                  </button>
                 </div>
 
-                {p.descripcion && <p className="product-desc">{p.descripcion}</p>}
+                {c.descripcion && <p className="product-desc" style={{ whiteSpace: 'pre-wrap' }}>{c.descripcion}</p>}
 
-                <div style={{ marginTop: 8 }}>
-                  <div className="product-price">{fmt(p.precio)}<span style={{ fontSize: 12, fontWeight: 400, color: 'hsl(var(--muted))', marginLeft: 4 }}>/ pieza</span></div>
-                  {p.costoProd != null && p.costoProd > 0 && (
-                    <div style={{ marginTop: 4, fontSize: 12, color: 'hsl(var(--muted))', display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span>🛠️ Costo prod:</span>
-                      <span style={{ fontWeight: 700, color: 'hsl(var(--danger))' }}>{fmt(p.costoProd)}/pz</span>
-                      <span style={{ color: 'hsl(var(--success))' }}>→ ganancia: {fmt(p.precio - p.costoProd)}/pz</span>
-                    </div>
-                  )}
-                  {p.tieneMayoreo && p.mayoreoMinPiezas && p.mayoreo_precio && (
-                    <div style={{
-                      marginTop: 6, padding: '6px 10px', borderRadius: 8,
-                      background: 'hsl(var(--primary-light))', display: 'flex',
-                      alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                    }}>
-                      <span style={{ fontSize: 12, color: 'hsl(var(--primary-dark))', fontWeight: 600 }}>📦 Mayoreo (+{p.mayoreoMinPiezas} pzs)</span>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--primary))' }}>
-                        {fmt(p.mayoreo_precio)}<span style={{ fontSize: 11, fontWeight: 400 }}>/pz</span>
-                      </span>
-                    </div>
-                  )}
+                <div style={{ marginTop: 12 }}>
+                  <div className="product-price">{fmt(c.precio)}<span style={{ fontSize: 11, fontWeight: 400, color: 'hsl(var(--muted))', marginLeft: 4 }}>precio total</span></div>
                 </div>
 
-                <div className="product-actions">
-                  <button className="btn btn-secondary btn-sm" onClick={() => openEdit(p)}>✏️ Editar</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setConfirm({ id: p.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
+                <div className="product-actions" style={{ marginTop: 16 }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => openEditCombo(c)}>✏️ Editar</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setConfirmCombo({ id: c.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      ) : (
-
-        /* ── TABLE VIEW ── */
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Categoría</th>
-                <th>Descripción</th>
-                <th>Precio unitario</th>
-                <th>Mayoreo</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(p => {
-                const cat = categoriasProducto.find(c => c.nombre === p.categoria);
-                return (
-                  <tr key={p.id}>
+            ))}
+          </div>
+        ) : (
+          /* ── COMBOS TABLE VIEW ── */
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Descripción / Incluye</th>
+                  <th>Precio total</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCombos.map(c => (
+                  <tr key={c.id}>
                     <td style={{ fontWeight: 600 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {p.foto && (
-                          <img src={p.foto} alt={p.nombre} style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid hsl(var(--border))' }} />
-                        )}
-                        {p.nombre}
+                        <span style={{ fontSize: 18 }}>🎁</span> {c.nombre}
                       </div>
                     </td>
+                    <td style={{ fontSize: 13, color: 'hsl(var(--muted))', whiteSpace: 'pre-wrap' }}>{c.descripcion || '—'}</td>
+                    <td><strong style={{ color: 'hsl(var(--primary))' }}>{fmt(c.precio)}</strong></td>
                     <td>
-                      {cat ? (
-                        <span style={{
-                          padding: '2px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
-                          background: cat.color, color: cat.text,
-                        }}>{cat.emoji} {cat.nombre}</span>
-                      ) : (
-                        <span style={{ fontSize: 12, background: 'hsl(var(--bg))', padding: '2px 8px', borderRadius: 99 }}>
-                          {p.categoria || '—'}
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ fontSize: 13, color: 'hsl(var(--muted))' }}>{p.descripcion || '—'}</td>
-                    <td><strong style={{ color: 'hsl(var(--primary))' }}>{fmt(p.precio)}</strong></td>
-                    <td>
-                      {p.tieneMayoreo && p.mayoreoMinPiezas && p.mayoreo_precio ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: 'hsl(var(--primary))' }}>{fmt(p.mayoreo_precio)}/pz</span>
-                          <span style={{ fontSize: 11, color: 'hsl(var(--muted))' }}>desde {p.mayoreoMinPiezas} pzs</span>
-                        </div>
-                      ) : (
-                        <span style={{ color: 'hsl(var(--muted))', fontSize: 13 }}>—</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`badge ${p.activo ? 'badge-completado' : 'badge-cancelado'}`}>
-                        {p.activo ? '✅ Activo' : '❌ Inactivo'}
+                      <span className={`badge ${c.activo ? 'badge-completado' : 'badge-cancelado'}`}>
+                        {c.activo ? '✅ Activo' : '❌ Inactivo'}
                       </span>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-secondary btn-icon btn-sm" onClick={() => openEdit(p)}>✏️</button>
-                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => toggleActivo(p)}>{p.activo ? '⭕' : '✅'}</button>
-                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirm({ id: p.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
+                        <button className="btn btn-secondary btn-icon btn-sm" onClick={() => openEditCombo(c)}>✏️</button>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => store.updateCombo(c.id, { activo: !c.activo })}>{c.activo ? '⭕' : '✅'}</button>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirmCombo({ id: c.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
 
       {/* ── Modal crear/editar producto ── */}
@@ -856,6 +1034,89 @@ export const CatalogoPage = () => {
             if (modal === 'categorias-inline') setModal('create');
             else setModal(null);
           }}
+        />
+      )}
+
+      {/* ── Modal crear/editar combo ── */}
+      {(modal === 'createCombo' || modal === 'editCombo') && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 560 }}>
+            <div className="modal-header">
+              <h2>{modal === 'createCombo' ? '🎁 Nuevo combo / paquete' : '✏️ Editar combo / paquete'}</h2>
+              <button type="button" className="btn btn-ghost btn-icon" onClick={() => setModal(null)}>✕</button>
+            </div>
+            <form onSubmit={handleSaveCombo}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Nombre del paquete *</label>
+                  <input 
+                    className="form-input" 
+                    required 
+                    value={comboForm.nombre} 
+                    onChange={e => setComboForm({ ...comboForm, nombre: e.target.value })} 
+                    placeholder="Ej: Paquete Básico, Combo Graduación" 
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Artículos que incluye / Descripción</label>
+                  <textarea 
+                    className="form-textarea" 
+                    value={comboForm.descripcion} 
+                    onChange={e => setComboForm({ ...comboForm, descripcion: e.target.value })} 
+                    placeholder="Detalla lo que incluye el paquete (ej. 10 Termos grabados + 10 plantillas)..." 
+                    style={{ minHeight: 120 }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Precio total predefinido *</label>
+                  <input 
+                    className="form-input" 
+                    type="number" 
+                    required 
+                    min="0" 
+                    step="0.01" 
+                    value={comboForm.precio} 
+                    onChange={e => setComboForm({ ...comboForm, precio: e.target.value })} 
+                    placeholder="0.00" 
+                  />
+                </div>
+                <div className="form-group" style={{ marginTop: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={comboForm.activo}
+                      onChange={e => setComboForm({ ...comboForm, activo: e.target.checked })}
+                      style={{ width: 16, height: 16, accentColor: 'hsl(var(--primary))' }}
+                    />
+                    <span className="form-label" style={{ margin: 0 }}>Combo activo (visible en cotizaciones)</span>
+                  </label>
+                </div>
+              </div>
+              <div className="modal-footer">
+                {editId && (
+                  <button 
+                    type="button" 
+                    className="btn btn-danger" 
+                    onClick={() => { setConfirmCombo({ id: editId }); setModal(null); }} 
+                    style={{ marginRight: 'auto' }}
+                  >
+                    🗑️ Eliminar
+                  </button>
+                )}
+                <button type="button" className="btn btn-ghost" onClick={() => setModal(null)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">{modal === 'createCombo' ? '✓ Crear' : '✓ Guardar'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {confirmCombo && (
+        <ConfirmDialog
+          title="¿Eliminar combo?"
+          message="Se eliminará del catálogo pero no afectará a cotizaciones existentes."
+          onConfirm={() => { store.deleteCombo(confirmCombo.id); setConfirmCombo(null); }}
+          onCancel={() => setConfirmCombo(null)}
         />
       )}
 
