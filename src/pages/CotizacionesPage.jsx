@@ -588,9 +588,29 @@ export const CotizacionesPage = () => {
                             </div>
                           );
                         } else if (line._comboDescripcion) {
+                          const lineas = line._comboDescripcion.split('\n').filter(Boolean);
                           return (
-                            <div style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 4, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
-                              🎁 <strong>Incluye:</strong> {line._comboDescripcion}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, padding: '6px 10px', background: 'hsl(var(--bg))', borderRadius: 8, border: '1px solid hsl(var(--border) / 0.5)' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: 'hsl(var(--primary))' }}>📦 Incluye:</span>
+                              {lineas.map((lin, idx) => {
+                                const match = lin.match(/^(\d+)\s*(?:x|pz|pzs|pz\.|pzs\.)?\s*(.*)$/i);
+                                if (match) {
+                                  return (
+                                    <div key={idx} style={{ fontSize: 11, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      <span style={{ display: 'inline-block', width: 18, height: 15, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 3, textAlign: 'center', lineHeight: '15px', fontWeight: 700, fontSize: 9 }}>
+                                        {match[1]}
+                                      </span>
+                                      <span>{match[2]}</span>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div key={idx} style={{ fontSize: 11, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ fontSize: 9 }}>•</span>
+                                    <span>{lin}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           );
                         }

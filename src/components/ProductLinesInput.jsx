@@ -254,8 +254,29 @@ export const ProductLinesInput = ({ lines = [], onChange, productos = [], combos
               {line._esCombo && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, padding: '8px 12px', background: 'hsl(var(--bg) / 0.4)', borderRadius: 10, border: '1px solid hsl(var(--border) / 0.5)' }}>
                   {line._comboDescripcion && (
-                    <div style={{ fontSize: 12, color: 'hsl(var(--muted))', fontStyle: 'italic', marginBottom: 2 }}>
-                      📦 Incluye: {line._comboDescripcion}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'hsl(var(--primary))' }}>📦 Artículos incluidos:</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 4 }}>
+                        {line._comboDescripcion.split('\n').filter(Boolean).map((lin, idx) => {
+                          const match = lin.match(/^(\d+)\s*(?:x|pz|pzs|pz\.|pzs\.)?\s*(.*)$/i);
+                          if (match) {
+                            return (
+                              <div key={idx} style={{ fontSize: 12, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ display: 'inline-block', width: 20, height: 16, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 4, textAlign: 'center', lineHeight: '16px', fontWeight: 700, fontSize: 9 }}>
+                                  {match[1]}
+                                </span>
+                                <span style={{ fontWeight: 500 }}>{match[2]}</span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={idx} style={{ fontSize: 12, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 10 }}>•</span>
+                              <span style={{ fontWeight: 500 }}>{lin}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
