@@ -27,12 +27,12 @@ export const loadFromCloud = async (userId) => {
   try {
     const { data, error } = await supabase
       .from('user_data')
-      .select('data')
+      .select('data, updated_at')
       .eq('user_id', userId)
       .single();
 
     if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
-    return data?.data || null;
+    return data ? { data: data.data, updated_at: data.updated_at } : null;
   } catch (e) {
     console.warn('No se pudo cargar desde la nube:', e.message);
     return null;
@@ -60,6 +60,7 @@ export const saveToCloud = async (userId, data, _attempt = 1) => {
 
     // ✅ Éxito — notificar al agente
     const counts = `${data.pedidos?.length ?? 0} pedidos, ${data.cotizaciones?.length ?? 0} cotizaciones`;
+    localStorage.setItem('sep_local_last_save', new Date().toISOString());
     window.dispatchEvent(new CustomEvent('sep:sync:success', { detail: { detail: counts } }));
   } catch (e) {
     console.warn(`[sync] Intento ${_attempt}/${MAX_RETRIES} fallido:`, e.message);
@@ -163,12 +164,42 @@ const loadAndHealPedidos = () => {
   return pedidos;
 };
 
+const loadAndHealCotizaciones = () => {
+  let cotizaciones = load('sep_cotizaciones', seedCotizaciones);
+  const idsVistos = new Set();
+  let huboDuplicados = false;
+  let maxIdNum = 0;
+
+  cotizaciones.forEach(c => {
+    const n = parseInt((c.id || '').replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(n) && n > maxIdNum) maxIdNum = n;
+  });
+
+  cotizaciones = cotizaciones.map(c => {
+    if (!c.id || idsVistos.has(c.id)) {
+      huboDuplicados = true;
+      maxIdNum += 1;
+      const nuevoId = 'C' + String(maxIdNum).padStart(4, '0');
+      idsVistos.add(nuevoId);
+      return { ...c, id: nuevoId };
+    }
+    idsVistos.add(c.id);
+    return c;
+  });
+
+  if (huboDuplicados) {
+    save('sep_cotizaciones', cotizaciones);
+    localStorage.setItem('sep_cot_counter', maxIdNum);
+  }
+  return cotizaciones;
+};
+
 let listeners = [];
 let state = {
   productos: load('sep_productos', seedProductos),
   combos: load('sep_combos', []),
   pedidos: loadAndHealPedidos(),
-  cotizaciones: load('sep_cotizaciones', seedCotizaciones),
+  cotizaciones: loadAndHealCotizaciones(),
   finanzas: load('sep_finanzas', seedFinanzas),
   clientes: load('sep_clientes', seedClientes),
   etiquetasPersonalizadas: load('sep_etiquetas', []),
@@ -588,7 +619,7 @@ export const store = {
       productos:              load('sep_productos', seedProductos),
       combos:                 load('sep_combos', []),
       pedidos:                loadAndHealPedidos(),
-      cotizaciones:           load('sep_cotizaciones', seedCotizaciones),
+      cotizaciones:           loadAndHealCotizaciones(),
       finanzas:               load('sep_finanzas', seedFinanzas),
       clientes:               load('sep_clientes', seedClientes),
       etiquetasPersonalizadas:load('sep_etiquetas', []),

@@ -139,8 +139,19 @@ const AppLayout = () => {
 
     reloadLockRef.current = true;
     try {
-      const cloudData = await loadFromCloud(user.id);
-      if (cloudData) {
+      const cloudResult = await loadFromCloud(user.id);
+      if (cloudResult && cloudResult.data) {
+        const localLastSave = localStorage.getItem('sep_local_last_save');
+        if (localLastSave && cloudResult.updated_at) {
+          const localTime = new Date(localLastSave).getTime();
+          const cloudTime = new Date(cloudResult.updated_at).getTime();
+          if (cloudTime <= localTime) {
+            console.log('[sync] Ignorando recarga de nube: los datos locales son iguales o más recientes.');
+            return;
+          }
+        }
+
+        const cloudData = cloudResult.data;
         if (cloudData.pedidos)         localStorage.setItem('sep_pedidos',           JSON.stringify(cloudData.pedidos));
         if (cloudData.cotizaciones)    localStorage.setItem('sep_cotizaciones',      JSON.stringify(cloudData.cotizaciones));
         if (cloudData.finanzas)        localStorage.setItem('sep_finanzas',          JSON.stringify(cloudData.finanzas));
