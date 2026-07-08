@@ -188,92 +188,99 @@ const AppLayout = () => {
     if (!user) return;
 
     const loadAndPopulate = async () => {
-      const currentConfig = store.getState().config;
-      const isDifferentUser = currentConfig._authUserId && currentConfig._authUserId !== user.id;
+      window.__isBootloading = true;
+      try {
+        const currentConfig = store.getState().config;
+        const isDifferentUser = currentConfig._authUserId && currentConfig._authUserId !== user.id;
 
-      // Si es un usuario diferente al que estaba guardado localmente,
-      // limpiar inmediatamente todo el almacenamiento local de negocio para evitar cruce de datos
-      if (isDifferentUser) {
-        console.log('[sync] Se detectó un usuario diferente en sesión. Limpiando almacenamiento local previo...');
-        const keysToClear = [
-          'sep_productos', 'sep_combos', 'sep_pedidos', 'sep_cotizaciones',
-          'sep_finanzas', 'sep_clientes', 'sep_etiquetas', 'sep_categorias_producto',
-          'sep_canales_venta', 'sep_config', 'sep_negocio_config', 'sep_alertas_pedidos',
-          'sep_theme', 'sep_dark_mode', 'sep_notas', 'sep_categorias_notas',
-          'sep_etiquetas_pedidos', 'sep_pending_cloud_sync', 'sep_local_last_save',
-          'sep_cot_counter', 'sep_ped_counter', 'sep_cli_counter', 'sep_fin_counter'
-        ];
-        keysToClear.forEach(key => localStorage.removeItem(key));
-        
-        // Cargar estado inicial limpio en memoria
-        window.__isReloadingFromCloud = true;
-        store.reloadFromLocalStorage();
-        await new Promise(resolve => setTimeout(resolve, 50));
-        window.__isReloadingFromCloud = false;
-      }
-
-      const isPending = localStorage.getItem('sep_pending_cloud_sync') === 'true';
-      if (isPending) {
-        console.log('Sincronizando cambios locales pendientes al iniciar...');
-        const s = store.getState();
-        try {
-          await saveToCloud(user.id, {
-            pedidos:       s.pedidos,
-            cotizaciones:  s.cotizaciones,
-            finanzas:      s.finanzas,
-            clientes:      s.clientes,
-            productos:     s.productos,
-            combos:        s.combos,
-            config:        s.config,
-            negocioConfig: s.negocioConfig,
-            themeColor:    s.themeColor,
-            notas:         s.notas,
-            categoriasNotas: s.categoriasNotas,
-            etiquetasPersonalizadas: s.etiquetasPersonalizadas,
-            categoriasProducto: s.categoriasProducto,
-            canalesVenta:  s.canalesVenta,
-            etiquetasPedidos: s.etiquetasPedidos,
-            alertasPedidos: s.alertasPedidos,
-            darkMode:      s.darkMode,
-          });
-          localStorage.setItem('sep_pending_cloud_sync', 'false');
-          console.log('Sincronización inicial de cambios locales completada.');
-        } catch (err) {
-          console.error('Error al sincronizar cambios locales en boot:', err);
+        // Si es un usuario diferente al que estaba guardado localmente,
+        // limpiar inmediatamente todo el almacenamiento local de negocio para evitar cruce de datos
+        if (isDifferentUser) {
+          console.log('[sync] Se detectó un usuario diferente en sesión. Limpiando almacenamiento local previo...');
+          const keysToClear = [
+            'sep_productos', 'sep_combos', 'sep_pedidos', 'sep_cotizaciones',
+            'sep_finanzas', 'sep_clientes', 'sep_etiquetas', 'sep_categorias_producto',
+            'sep_canales_venta', 'sep_config', 'sep_negocio_config', 'sep_alertas_pedidos',
+            'sep_theme', 'sep_dark_mode', 'sep_notas', 'sep_categorias_notas',
+            'sep_etiquetas_pedidos', 'sep_pending_cloud_sync', 'sep_local_last_save',
+            'sep_cot_counter', 'sep_ped_counter', 'sep_cli_counter', 'sep_fin_counter'
+          ];
+          keysToClear.forEach(key => localStorage.removeItem(key));
+          
+          // Cargar estado inicial limpio en memoria
+          window.__isReloadingFromCloud = true;
+          store.reloadFromLocalStorage();
+          await new Promise(resolve => setTimeout(resolve, 50));
+          window.__isReloadingFromCloud = false;
         }
-      } else {
-        await reloadFromCloud();
+
+        const isPending = localStorage.getItem('sep_pending_cloud_sync') === 'true';
+        if (isPending) {
+          console.log('Sincronizando cambios locales pendientes al iniciar...');
+          const s = store.getState();
+          try {
+            await saveToCloud(user.id, {
+              pedidos:       s.pedidos,
+              cotizaciones:  s.cotizaciones,
+              finanzas:      s.finanzas,
+              clientes:      s.clientes,
+              productos:     s.productos,
+              combos:        s.combos,
+              config:        s.config,
+              negocioConfig: s.negocioConfig,
+              themeColor:    s.themeColor,
+              notas:         s.notas,
+              categoriasNotas: s.categoriasNotas,
+              etiquetasPersonalizadas: s.etiquetasPersonalizadas,
+              categoriasProducto: s.categoriasProducto,
+              canalesVenta:  s.canalesVenta,
+              etiquetasPedidos: s.etiquetasPedidos,
+              alertasPedidos: s.alertasPedidos,
+              darkMode:      s.darkMode,
+            });
+            localStorage.setItem('sep_pending_cloud_sync', 'false');
+            console.log('Sincronización inicial de cambios locales completada.');
+          } catch (err) {
+            console.error('Error al sincronizar cambios locales en boot:', err);
+          }
+        } else {
+          await reloadFromCloud();
+        }
+
+        // Esperar un tick para asegurarnos que el store ya se actualizó
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const updatedConfig = store.getState().config;
+        const meta = user.user_metadata || {};
+
+        // Datos del usuario autenticado (Google o Email)
+        const nombre = meta.full_name || meta.name || meta.nombre || '';
+        const email = user.email || '';
+        const avatar = meta.avatar_url || meta.picture || '';
+
+        const updates = {};
+
+        // Re-rellenar perfil según si es un nuevo usuario o el mismo
+        if (isDifferentUser) {
+          if (nombre) updates.propietario = nombre;
+          if (email) updates.email = email;
+          if (avatar) updates.profilePhoto = avatar;
+          else updates.profilePhoto = '';
+        } else {
+          if (email && updatedConfig.email !== email) updates.email = email;
+          if (!updatedConfig.propietario && nombre) updates.propietario = nombre;
+          if (avatar && !updatedConfig.profilePhoto) updates.profilePhoto = avatar;
+        }
+
+        // Guardar el ID del usuario autenticado para detectar cambios de cuenta
+        updates._authUserId = user.id;
+
+        store.updateConfig(updates);
+      } catch (err) {
+        console.error('[sync] Error al iniciar sesión y sincronizar:', err);
+      } finally {
+        window.__isBootloading = false;
       }
-
-      // Esperar un tick para asegurarnos que el store ya se actualizó
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const updatedConfig = store.getState().config;
-      const meta = user.user_metadata || {};
-
-      // Datos del usuario autenticado (Google o Email)
-      const nombre = meta.full_name || meta.name || meta.nombre || '';
-      const email = user.email || '';
-      const avatar = meta.avatar_url || meta.picture || '';
-
-      const updates = {};
-
-      // Re-rellenar perfil según si es un nuevo usuario o el mismo
-      if (isDifferentUser) {
-        if (nombre) updates.propietario = nombre;
-        if (email) updates.email = email;
-        if (avatar) updates.profilePhoto = avatar;
-        else updates.profilePhoto = '';
-      } else {
-        if (email && updatedConfig.email !== email) updates.email = email;
-        if (!updatedConfig.propietario && nombre) updates.propietario = nombre;
-        if (avatar && !updatedConfig.profilePhoto) updates.profilePhoto = avatar;
-      }
-
-      // Guardar el ID del usuario autenticado para detectar cambios de cuenta
-      updates._authUserId = user.id;
-
-      store.updateConfig(updates);
     };
 
     loadAndPopulate();
@@ -302,8 +309,8 @@ const AppLayout = () => {
   useEffect(() => {
     if (!user) return;
     const unsub = store.subscribe(() => {
-      // No guardar si estamos recargando desde la nube o recibiendo de otra pestaña
-      if (window.__isReloadingFromCloud || window.__isSyncingFromStorage) return;
+      // No guardar si estamos recargando desde la nube, recibiendo de otra pestaña o inicializando el perfil
+      if (window.__isReloadingFromCloud || window.__isSyncingFromStorage || window.__isBootloading) return;
 
       // Marcar cambios pendientes locales de inmediato
       localStorage.setItem('sep_pending_cloud_sync', 'true');
