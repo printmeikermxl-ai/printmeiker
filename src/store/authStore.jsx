@@ -50,7 +50,25 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Error signing out from Supabase:', e);
+    }
+    
+    // Limpiar claves de almacenamiento local para evitar filtrado de datos al cambiar de usuario
+    const keysToClear = [
+      'sep_productos', 'sep_combos', 'sep_pedidos', 'sep_cotizaciones',
+      'sep_finanzas', 'sep_clientes', 'sep_etiquetas', 'sep_categorias_producto',
+      'sep_canales_venta', 'sep_config', 'sep_negocio_config', 'sep_alertas_pedidos',
+      'sep_theme', 'sep_dark_mode', 'sep_notas', 'sep_categorias_notas',
+      'sep_etiquetas_pedidos', 'sep_pending_cloud_sync', 'sep_local_last_save',
+      'sep_cot_counter', 'sep_ped_counter', 'sep_cli_counter', 'sep_fin_counter'
+    ];
+    keysToClear.forEach(key => localStorage.removeItem(key));
+    
+    // Forzar recarga para limpiar el estado en memoria de React y del Store
+    window.location.reload();
   };
 
   return (
