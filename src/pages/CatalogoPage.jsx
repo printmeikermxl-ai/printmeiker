@@ -386,6 +386,14 @@ const emptyForm = () => ({
   foto: '',
 });
 
+const emptyComboForm = () => ({
+  nombre: '', articulos: [{ cantidad: 1, nombre: '' }], precio: '', activo: true,
+  tieneMayoreo: false, mayoreoMinPiezas: '', mayoreo_precio: '',
+  costoProd: '',
+  foto: '',
+  categoria: '',
+});
+
 const fmt = (n) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -396,7 +404,7 @@ export const CatalogoPage = () => {
   const [filtroCategoria, setFiltroCategoria] = useState('todos');
   const [modal, setModal] = useState(null); // null | 'create' | 'edit' | 'categorias' | 'createCombo' | 'editCombo'
   const [form, setForm] = useState(emptyForm());
-  const [comboForm, setComboForm] = useState({ nombre: '', articulos: [{ cantidad: 1, nombre: '' }], precio: '', activo: true });
+  const [comboForm, setComboForm] = useState(emptyComboForm());
   const [editId, setEditId] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [confirmCombo, setConfirmCombo] = useState(null);
@@ -452,6 +460,12 @@ export const CatalogoPage = () => {
       descripcion: comboForm.articulos.map(a => `${a.cantidad}x ${a.nombre}`).join('\n'),
       precio: Number(comboForm.precio),
       activo: comboForm.activo,
+      foto: comboForm.foto,
+      categoria: comboForm.categoria,
+      costoProd: comboForm.costoProd !== '' ? Number(comboForm.costoProd) : null,
+      tieneMayoreo: comboForm.tieneMayoreo,
+      mayoreoMinPiezas: comboForm.tieneMayoreo && comboForm.mayoreoMinPiezas !== '' ? Number(comboForm.mayoreoMinPiezas) : null,
+      mayoreo_precio: comboForm.tieneMayoreo && comboForm.mayoreo_precio !== '' ? Number(comboForm.mayoreo_precio) : null,
     };
     if (editId) store.updateCombo(editId, data);
     else store.addCombo(data);
@@ -459,7 +473,7 @@ export const CatalogoPage = () => {
   };
 
   const openCreateCombo = () => {
-    setComboForm({ nombre: '', articulos: [{ cantidad: 1, nombre: '' }], precio: '', activo: true });
+    setComboForm({ ...emptyComboForm(), categoria: categoriasProducto[0]?.nombre || '' });
     setEditId(null);
     setModal('createCombo');
   };
@@ -467,10 +481,14 @@ export const CatalogoPage = () => {
   const openEditCombo = (c) => {
     const articulos = c.articulos || parseDescripcionAArticulos(c.descripcion);
     setComboForm({
-      nombre: c.nombre,
+      ...emptyComboForm(),
+      ...c,
       articulos,
-      precio: c.precio,
-      activo: c.activo !== false,
+      tieneMayoreo: !!(c.mayoreoMinPiezas && c.mayoreo_precio),
+      mayoreoMinPiezas: c.mayoreoMinPiezas ?? '',
+      mayoreo_precio: c.mayoreo_precio ?? '',
+      costoProd: c.costoProd ?? '',
+      foto: c.foto ?? '',
     });
     setEditId(c.id);
     setModal('editCombo');
@@ -491,6 +509,27 @@ export const CatalogoPage = () => {
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
         setForm(f => ({ ...f, foto: canvas.toDataURL('image/jpeg', 0.82) }));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleComboFotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 400;
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+        else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        setComboForm(f => ({ ...f, foto: canvas.toDataURL('image/jpeg', 0.82) }));
       };
       img.src = ev.target.result;
     };
@@ -747,72 +786,117 @@ export const CatalogoPage = () => {
         ) : view === 'grid' ? (
           /* ── COMBOS GRID VIEW ── */
           <div className="product-grid">
-            {filteredCombos.map(c => (
-              <div key={c.id} className="product-card" style={{ opacity: c.activo ? 1 : 0.55 }}>
-                <div style={{ 
-                  margin: '-16px -16px 12px -16px', 
-                  overflow: 'hidden', 
-                  borderRadius: '12px 12px 0 0', 
-                  height: 140, 
-                  background: 'hsl(var(--bg))', 
-                  display: 'grid', 
-                  placeItems: 'center', 
-                  borderBottom: '1px solid hsl(var(--border) / 0.5)',
-                  position: 'relative'
-                }}>
-                  <div style={{ fontSize: 44, opacity: 0.35 }}>🎁</div>
-                  <span style={{
-                    position: 'absolute',
-                    top: 10,
-                    left: 10,
-                    background: 'hsl(var(--primary))',
-                    color: '#fff',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: 99
+            {filteredCombos.map(c => {
+              const cat = categoriasProducto.find(x => x.nombre === c.categoria);
+              return (
+                <div key={c.id} className="product-card" style={{ opacity: c.activo ? 1 : 0.55 }}>
+                  <div style={{ 
+                    margin: '-16px -16px 12px -16px', 
+                    overflow: 'hidden', 
+                    borderRadius: '12px 12px 0 0', 
+                    height: 140, 
+                    background: 'hsl(var(--bg))', 
+                    display: 'grid', 
+                    placeItems: 'center', 
+                    borderBottom: '1px solid hsl(var(--border) / 0.5)',
+                    position: 'relative'
                   }}>
-                    PAQUETE / COMBO
-                  </span>
-                </div>
-                <div className="product-card-header">
-                  <div>
-                    <div className="product-name">{c.nombre}</div>
+                    {c.foto ? (
+                      <img src={c.foto} alt={c.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ fontSize: 44, opacity: 0.35 }}>🎁</div>
+                    )}
+                    <span style={{
+                      position: 'absolute',
+                      top: 10,
+                      left: 10,
+                      background: 'hsl(var(--primary))',
+                      color: '#fff',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 99
+                    }}>
+                      PAQUETE / COMBO
+                    </span>
                   </div>
-                  <button
-                    className={`btn btn-sm ${c.activo ? 'btn-secondary' : 'btn-ghost'}`}
-                    onClick={() => store.updateCombo(c.id, { activo: !c.activo })}
-                    title={c.activo ? 'Desactivar' : 'Activar'}
-                  >
-                    {c.activo ? '✅' : '⭕'}
-                  </button>
-                </div>
-
-                {c.articulos && c.articulos.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '10px 0' }}>
-                    {c.articulos.map((a, idx) => (
-                      <div key={idx} style={{ fontSize: 13, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ display: 'inline-block', width: 22, height: 18, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 4, textAlign: 'center', lineHeight: '18px', fontWeight: 700, fontSize: 10 }}>
-                          {a.cantidad}
-                        </span>
-                        <span style={{ fontWeight: 500 }}>{a.nombre}</span>
+                  <div className="product-card-header">
+                    <div>
+                      <div className="product-name">{c.nombre}</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                        {cat ? (
+                          <span style={{
+                            padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+                            background: cat.color, color: cat.text,
+                          }}>{cat.emoji} {cat.nombre}</span>
+                        ) : c.categoria ? (
+                          <span className="product-category">{c.categoria}</span>
+                        ) : null}
+                        {c.tieneMayoreo && c.mayoreoMinPiezas && c.mayoreo_precio && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
+                            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
+                            color: '#fff',
+                          }}>
+                            📦 Mayoreo desde {c.mayoreoMinPiezas} pzs
+                          </span>
+                        )}
                       </div>
-                    ))}
+                    </div>
+                    <button
+                      className={`btn btn-sm ${c.activo ? 'btn-secondary' : 'btn-ghost'}`}
+                      onClick={() => store.updateCombo(c.id, { activo: !c.activo })}
+                      title={c.activo ? 'Desactivar' : 'Activar'}
+                    >
+                      {c.activo ? '✅' : '⭕'}
+                    </button>
                   </div>
-                ) : c.descripcion ? (
-                  <p className="product-desc" style={{ whiteSpace: 'pre-wrap' }}>{c.descripcion}</p>
-                ) : null}
 
-                <div style={{ marginTop: 12 }}>
-                  <div className="product-price">{fmt(c.precio)}<span style={{ fontSize: 11, fontWeight: 400, color: 'hsl(var(--muted))', marginLeft: 4 }}>precio total</span></div>
-                </div>
+                  {c.articulos && c.articulos.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '10px 0' }}>
+                      {c.articulos.map((a, idx) => (
+                        <div key={idx} style={{ fontSize: 13, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ display: 'inline-block', width: 22, height: 18, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 4, textAlign: 'center', lineHeight: '18px', fontWeight: 700, fontSize: 10 }}>
+                            {a.cantidad}
+                          </span>
+                          <span style={{ fontWeight: 500 }}>{a.nombre}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : c.descripcion ? (
+                    <p className="product-desc" style={{ whiteSpace: 'pre-wrap' }}>{c.descripcion}</p>
+                  ) : null}
 
-                <div className="product-actions" style={{ marginTop: 16 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => openEditCombo(c)}>✏️ Editar</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setConfirmCombo({ id: c.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
+                  <div style={{ marginTop: 12 }}>
+                    <div className="product-price">{fmt(c.precio)}<span style={{ fontSize: 11, fontWeight: 400, color: 'hsl(var(--muted))', marginLeft: 4 }}>precio total</span></div>
+                    {c.costoProd != null && c.costoProd > 0 && (
+                      <div style={{ marginTop: 4, fontSize: 12, color: 'hsl(var(--muted))', display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span>🛠️ Costo prod:</span>
+                        <span style={{ fontWeight: 700, color: 'hsl(var(--danger))' }}>{fmt(c.costoProd)}</span>
+                        <span style={{ color: 'hsl(var(--success))' }}>→ ganancia: {fmt(c.precio - c.costoProd)}</span>
+                      </div>
+                    )}
+                    {c.tieneMayoreo && c.mayoreoMinPiezas && c.mayoreo_precio && (
+                      <div style={{
+                        marginTop: 6, padding: '6px 10px', borderRadius: 8,
+                        background: 'hsl(var(--primary-light))', display: 'flex',
+                        alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                      }}>
+                        <span style={{ fontSize: 12, color: 'hsl(var(--primary-dark))', fontWeight: 600 }}>📦 Mayoreo (+{c.mayoreoMinPiezas} pzs)</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--primary))' }}>
+                          {fmt(c.mayoreo_precio)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="product-actions" style={{ marginTop: 16 }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => openEditCombo(c)}>✏️ Editar</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setConfirmCombo({ id: c.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           /* ── COMBOS TABLE VIEW ── */
@@ -821,49 +905,81 @@ export const CatalogoPage = () => {
               <thead>
                 <tr>
                   <th>Nombre</th>
+                  <th>Categoría</th>
                   <th>Descripción / Incluye</th>
                   <th>Precio total</th>
+                  <th>Mayoreo</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredCombos.map(c => (
-                  <tr key={c.id}>
-                    <td style={{ fontWeight: 600 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 18 }}>🎁</span> {c.nombre}
-                      </div>
-                    </td>
-                    <td style={{ fontSize: 13, color: 'hsl(var(--muted))' }}>
-                      {c.articulos && c.articulos.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {c.articulos.map((a, idx) => (
-                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ display: 'inline-block', width: 20, height: 16, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 4, textAlign: 'center', lineHeight: '16px', fontWeight: 700, fontSize: 10 }}>
-                                {a.cantidad}
-                              </span>
-                              <span>{a.nombre}</span>
-                            </div>
-                          ))}
+                {filteredCombos.map(c => {
+                  const cat = categoriasProducto.find(x => x.nombre === c.categoria);
+                  return (
+                    <tr key={c.id}>
+                      <td style={{ fontWeight: 600 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {c.foto ? (
+                            <img src={c.foto} alt={c.nombre} style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid hsl(var(--border))' }} />
+                          ) : (
+                            <span style={{ fontSize: 18 }}>🎁</span>
+                          )}
+                          {c.nombre}
                         </div>
-                      ) : c.descripcion || '—'}
-                    </td>
-                    <td><strong style={{ color: 'hsl(var(--primary))' }}>{fmt(c.precio)}</strong></td>
-                    <td>
-                      <span className={`badge ${c.activo ? 'badge-completado' : 'badge-cancelado'}`}>
-                        {c.activo ? '✅ Activo' : '❌ Inactivo'}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-secondary btn-icon btn-sm" onClick={() => openEditCombo(c)}>✏️</button>
-                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => store.updateCombo(c.id, { activo: !c.activo })}>{c.activo ? '⭕' : '✅'}</button>
-                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirmCombo({ id: c.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td>
+                        {cat ? (
+                          <span style={{
+                            padding: '2px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+                            background: cat.color, color: cat.text,
+                          }}>{cat.emoji} {cat.nombre}</span>
+                        ) : (
+                          <span style={{ fontSize: 12, background: 'hsl(var(--bg))', padding: '2px 8px', borderRadius: 99 }}>
+                            {c.categoria || '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 13, color: 'hsl(var(--muted))' }}>
+                        {c.articulos && c.articulos.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {c.articulos.map((a, idx) => (
+                              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ display: 'inline-block', width: 20, height: 16, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 4, textAlign: 'center', lineHeight: '16px', fontWeight: 700, fontSize: 10 }}>
+                                  {a.cantidad}
+                                </span>
+                                <span>{a.nombre}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : c.descripcion || '—'}
+                      </td>
+                      <td><strong style={{ color: 'hsl(var(--primary))' }}>{fmt(c.precio)}</strong></td>
+                      <td>
+                        {c.tieneMayoreo && c.mayoreoMinPiezas && c.mayoreo_precio ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'hsl(var(--primary))' }}>{fmt(c.mayoreo_precio)}</span>
+                            <span style={{ fontSize: 11, color: 'hsl(var(--muted))' }}>desde {c.mayoreoMinPiezas} pzs</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'hsl(var(--muted))', fontSize: 13 }}>—</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${c.activo ? 'badge-completado' : 'badge-cancelado'}`}>
+                          {c.activo ? '✅ Activo' : '❌ Inactivo'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="btn btn-secondary btn-icon btn-sm" onClick={() => openEditCombo(c)}>✏️</button>
+                          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => store.updateCombo(c.id, { activo: !c.activo })}>{c.activo ? '⭕' : '✅'}</button>
+                          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirmCombo({ id: c.id })} style={{ color: 'hsl(var(--danger))' }}>🗑️</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1090,6 +1206,47 @@ export const CatalogoPage = () => {
             </div>
             <form onSubmit={handleSaveCombo}>
               <div className="modal-body">
+                {/* ── Foto del combo ── */}
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>📷 Imagen del combo/paquete <span style={{ fontWeight: 400, color: 'hsl(var(--muted))' }}>opcional</span></label>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: comboForm.foto ? '2px solid hsl(var(--primary))' : '2px dashed hsl(var(--border))',
+                    borderRadius: 14,
+                    padding: 20,
+                    background: 'hsl(var(--bg) / 0.3)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    textAlign: 'center',
+                  }}>
+                    {comboForm.foto ? (
+                      <div style={{ position: 'relative', width: '100%', height: 180, borderRadius: 8, overflow: 'hidden' }}>
+                        <img src={comboForm.foto} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#0f0f1a' }} />
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          style={{ position: 'absolute', top: 8, right: 8, padding: '4px 8px', borderRadius: 6, fontSize: 11, background: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setComboForm(f => ({ ...f, foto: '' })); }}
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      </div>
+                    ) : (
+                      <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', width: '100%', height: 120, justifyContent: 'center', margin: 0 }}>
+                        <span style={{ fontSize: 36, marginBottom: 6 }}>🖼️</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'hsl(var(--primary))' }}>Haz clic aquí para subir una imagen</span>
+                        <span style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 3 }}>Formatos permitidos: JPG, PNG (Recomendado 16:9)</span>
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleComboFotoUpload} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">Nombre del paquete *</label>
                   <input 
@@ -1158,19 +1315,123 @@ export const CatalogoPage = () => {
                     ))}
                   </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Precio total predefinido *</label>
-                  <input 
-                    className="form-input" 
-                    type="number" 
-                    required 
-                    min="0" 
-                    step="0.01" 
-                    value={comboForm.precio} 
-                    onChange={e => setComboForm({ ...comboForm, precio: e.target.value })} 
-                    placeholder="0.00" 
-                  />
+
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">Precio total predefinido *</label>
+                    <input 
+                      className="form-input" 
+                      type="number" 
+                      required 
+                      min="0" 
+                      step="0.01" 
+                      value={comboForm.precio} 
+                      onChange={e => setComboForm({ ...comboForm, precio: e.target.value })} 
+                      placeholder="0.00" 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Categoría</label>
+                    <SelectorCategoria
+                      value={comboForm.categoria}
+                      onChange={v => setComboForm({ ...comboForm, categoria: v })}
+                      categorias={categoriasProducto}
+                      onGestionar={() => setModal('categorias-inline')}
+                    />
+                  </div>
                 </div>
+
+                {/* ── Costo de producción del combo ── */}
+                <div style={{
+                  marginTop: 4, borderRadius: 12, overflow: 'hidden',
+                  border: '1.5px dashed hsl(var(--border))', padding: '12px 14px',
+                }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'hsl(var(--foreground))' }}>
+                    🛠️ Costo de producción <span style={{ fontSize: 11, fontWeight: 400, color: 'hsl(var(--muted))' }}>opcional</span>
+                  </div>
+                  <input
+                    className="form-input"
+                    type="number" min="0" step="0.01"
+                    value={comboForm.costoProd}
+                    onChange={e => setComboForm({ ...comboForm, costoProd: e.target.value })}
+                    placeholder="Ej: 40.00 (cuánto te cuesta armar este paquete)"
+                  />
+                  {comboForm.precio && comboForm.costoProd && Number(comboForm.costoProd) > 0 && (
+                    <div style={{ marginTop: 8, fontSize: 12, display: 'flex', gap: 14 }}>
+                      <span style={{ color: 'hsl(var(--muted))' }}>Ganancia/paquete: <strong style={{ color: 'hsl(var(--success))' }}>{fmt(Number(comboForm.precio) - Number(comboForm.costoProd))}</strong></span>
+                      <span style={{ color: 'hsl(var(--muted))' }}>Margen: <strong style={{ color: 'hsl(var(--primary))' }}>{Math.round(((Number(comboForm.precio) - Number(comboForm.costoProd)) / Number(comboForm.precio)) * 100)}%</strong></span>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Mayoreo del combo ── */}
+                <div style={{
+                  marginTop: 4, borderRadius: 12, overflow: 'hidden',
+                  border: comboForm.tieneMayoreo ? '1.5px solid hsl(var(--primary))' : '1.5px dashed hsl(var(--border))',
+                  transition: 'border-color 0.2s',
+                }}>
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                    cursor: 'pointer', background: comboForm.tieneMayoreo ? 'hsl(var(--primary-light))' : 'transparent',
+                    transition: 'background 0.2s',
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={comboForm.tieneMayoreo}
+                      onChange={e => setComboForm({ ...comboForm, tieneMayoreo: e.target.checked })}
+                      style={{ width: 16, height: 16, accentColor: 'hsl(var(--primary))' }}
+                    />
+                    <div>
+                      <span style={{ fontWeight: 600, fontSize: 14, color: comboForm.tieneMayoreo ? 'hsl(var(--primary))' : 'hsl(var(--foreground))' }}>
+                        📦 Precio de mayoreo
+                      </span>
+                      <span style={{ marginLeft: 8, fontSize: 12, color: 'hsl(var(--muted))' }}>opcional</span>
+                    </div>
+                  </label>
+
+                  {comboForm.tieneMayoreo && (
+                    <div style={{ padding: '0 14px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 6 }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Mínimo de paquetes *</label>
+                        <input
+                          className="form-input" type="number" min="2" step="1"
+                          required={comboForm.tieneMayoreo} value={comboForm.mayoreoMinPiezas}
+                          onChange={e => setComboForm({ ...comboForm, mayoreoMinPiezas: e.target.value })} placeholder="Ej: 5"
+                        />
+                        <span style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 3, display: 'block' }}>A partir de cuántos paquetes aplica</span>
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Precio mayoreo / paquete *</label>
+                        <input
+                          className="form-input" type="number" min="0" step="0.01"
+                          required={comboForm.tieneMayoreo} value={comboForm.mayoreo_precio}
+                          onChange={e => setComboForm({ ...comboForm, mayoreo_precio: e.target.value })} placeholder="0.00"
+                        />
+                        <span style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 3, display: 'block' }}>Precio especial por paquete</span>
+                      </div>
+
+                      {comboForm.precio && comboForm.mayoreo_precio && Number(comboForm.mayoreo_precio) < Number(comboForm.precio) && (
+                        <div style={{
+                          gridColumn: '1 / -1', borderRadius: 8, padding: '8px 12px',
+                          background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.06))',
+                          border: '1px solid hsl(var(--primary) / 0.3)',
+                          display: 'flex', alignItems: 'center', gap: 10,
+                        }}>
+                          <span style={{ fontSize: 18 }}>💰</span>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--primary))' }}>
+                              El cliente ahorra {fmt(Number(comboForm.precio) - Number(comboForm.mayoreo_precio))} por paquete
+                            </div>
+                            <div style={{ fontSize: 11, color: 'hsl(var(--muted))' }}>
+                              {Math.round((1 - Number(comboForm.mayoreo_precio) / Number(comboForm.precio)) * 100)}% de descuento al comprar {comboForm.mayoreoMinPiezas || '…'} o más paquetes
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="form-group" style={{ marginTop: 12 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                     <input
