@@ -133,11 +133,41 @@ const seedEtiquetasPedidos = [
 ];
 
 // ── main store hook ───────────────────────────────────────────────────────────
+const loadAndHealPedidos = () => {
+  let pedidos = load('sep_pedidos', seedPedidos);
+  const idsVistos = new Set();
+  let huboDuplicados = false;
+  let maxIdNum = 0;
+
+  pedidos.forEach(p => {
+    const n = parseInt((p.id || '').replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(n) && n > maxIdNum) maxIdNum = n;
+  });
+
+  pedidos = pedidos.map(p => {
+    if (!p.id || idsVistos.has(p.id)) {
+      huboDuplicados = true;
+      maxIdNum += 1;
+      const nuevoId = 'P' + String(maxIdNum).padStart(4, '0');
+      idsVistos.add(nuevoId);
+      return { ...p, id: nuevoId };
+    }
+    idsVistos.add(p.id);
+    return p;
+  });
+
+  if (huboDuplicados) {
+    save('sep_pedidos', pedidos);
+    localStorage.setItem('sep_ped_counter', maxIdNum);
+  }
+  return pedidos;
+};
+
 let listeners = [];
 let state = {
   productos: load('sep_productos', seedProductos),
   combos: load('sep_combos', []),
-  pedidos: load('sep_pedidos', seedPedidos),
+  pedidos: loadAndHealPedidos(),
   cotizaciones: load('sep_cotizaciones', seedCotizaciones),
   finanzas: load('sep_finanzas', seedFinanzas),
   clientes: load('sep_clientes', seedClientes),
@@ -242,14 +272,32 @@ export const store = {
   // ── pedidos ──
   addPedido: (p) => {
     const defaultCanal = (state.canalesVenta && state.canalesVenta[0]?.id) || 'canal-1';
-    const newPedido = { canal: defaultCanal, ...p, id: 'P' + Date.now().toString().slice(-4) };
+    const stored   = parseInt(localStorage.getItem('sep_ped_counter') || '0', 10);
+    const maxExist = state.pedidos.reduce((max, x) => {
+      const n = parseInt((x.id || '').replace(/[^0-9]/g, ''), 10);
+      return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+    const next = Math.max(stored, maxExist) + 1;
+    localStorage.setItem('sep_ped_counter', next);
+    const id = 'P' + String(next).padStart(4, '0');
+
+    const newPedido = { canal: defaultCanal, ...p, id };
     const pedidos = [...state.pedidos, newPedido];
     save('sep_pedidos', pedidos);
     setState({ pedidos });
   },
   addPedidoReturn: (p) => {
     const defaultCanal = (state.canalesVenta && state.canalesVenta[0]?.id) || 'canal-1';
-    const newPedido = { canal: defaultCanal, ...p, id: 'P' + Date.now().toString().slice(-4) };
+    const stored   = parseInt(localStorage.getItem('sep_ped_counter') || '0', 10);
+    const maxExist = state.pedidos.reduce((max, x) => {
+      const n = parseInt((x.id || '').replace(/[^0-9]/g, ''), 10);
+      return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+    const next = Math.max(stored, maxExist) + 1;
+    localStorage.setItem('sep_ped_counter', next);
+    const id = 'P' + String(next).padStart(4, '0');
+
+    const newPedido = { canal: defaultCanal, ...p, id };
     const pedidos = [...state.pedidos, newPedido];
     save('sep_pedidos', pedidos);
     setState({ pedidos });
@@ -334,7 +382,16 @@ export const store = {
 
   // ── finanzas ──
   addFinanza: (f) => {
-    const finanzas = [...state.finanzas, { ...f, id: 'F' + Date.now().toString().slice(-4) }];
+    const stored   = parseInt(localStorage.getItem('sep_fin_counter') || '0', 10);
+    const maxExist = state.finanzas.reduce((max, x) => {
+      const n = parseInt((x.id || '').replace(/[^0-9]/g, ''), 10);
+      return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+    const next = Math.max(stored, maxExist) + 1;
+    localStorage.setItem('sep_fin_counter', next);
+    const id = 'F' + String(next).padStart(4, '0');
+
+    const finanzas = [...state.finanzas, { ...f, id }];
     save('sep_finanzas', finanzas);
     setState({ finanzas });
   },
@@ -351,7 +408,16 @@ export const store = {
 
   // ── clientes ──
   addCliente: (c) => {
-    const clientes = [...state.clientes, { ...c, id: 'CL' + Date.now().toString().slice(-4), fechaRegistro: new Date().toISOString().split('T')[0] }];
+    const stored   = parseInt(localStorage.getItem('sep_cli_counter') || '0', 10);
+    const maxExist = state.clientes.reduce((max, x) => {
+      const n = parseInt((x.id || '').replace(/[^0-9]/g, ''), 10);
+      return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+    const next = Math.max(stored, maxExist) + 1;
+    localStorage.setItem('sep_cli_counter', next);
+    const id = 'CL' + String(next).padStart(4, '0');
+
+    const clientes = [...state.clientes, { ...c, id, fechaRegistro: new Date().toISOString().split('T')[0] }];
     save('sep_clientes', clientes);
     setState({ clientes });
   },
@@ -521,7 +587,7 @@ export const store = {
     const newState = {
       productos:              load('sep_productos', seedProductos),
       combos:                 load('sep_combos', []),
-      pedidos:                load('sep_pedidos', seedPedidos),
+      pedidos:                loadAndHealPedidos(),
       cotizaciones:           load('sep_cotizaciones', seedCotizaciones),
       finanzas:               load('sep_finanzas', seedFinanzas),
       clientes:               load('sep_clientes', seedClientes),
