@@ -67,5 +67,43 @@ CREATE TRIGGER trigger_update_updated_at
 -- 7. Habilitar Realtime para la tabla user_data para recibir cambios al instante entre dispositivos/pestañas
 alter publication supabase_realtime add table public.user_data;
 
--- ✅ ¡Listo! La tabla user_data está creada y configurada.
+-- 8. Crear la tabla user_backups para almacenar copias de seguridad de datos por usuario
+CREATE TABLE IF NOT EXISTS public.user_backups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  data JSONB NOT NULL DEFAULT '{}',
+  description TEXT NOT NULL DEFAULT 'Copia automática',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 9. Habilitar Row Level Security (RLS) para que cada usuario solo vea sus copias de seguridad
+ALTER TABLE public.user_backups ENABLE ROW LEVEL SECURITY;
+
+-- 10. Políticas de seguridad para copias de seguridad
+-- Política de lectura
+DROP POLICY IF EXISTS "Users can read own backups" ON public.user_backups;
+CREATE POLICY "Users can read own backups"
+  ON public.user_backups FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Política de inserción
+DROP POLICY IF EXISTS "Users can insert own backups" ON public.user_backups;
+CREATE POLICY "Users can insert own backups"
+  ON public.user_backups FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Política de eliminación
+DROP POLICY IF EXISTS "Users can delete own backups" ON public.user_backups;
+CREATE POLICY "Users can delete own backups"
+  ON public.user_backups FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- 11. Crear índice para búsquedas rápidas por user_id en copias de seguridad
+CREATE INDEX IF NOT EXISTS idx_user_backups_user_id ON public.user_backups(user_id);
+
+-- 12. Habilitar Realtime para la tabla user_backups
+alter publication supabase_realtime add table public.user_backups;
+
+-- ✅ ¡Listo! Las tablas user_data y user_backups están creadas y configuradas.
 -- Ahora ve a: Authentication → Providers → Email → Desactiva "Confirm email"
+

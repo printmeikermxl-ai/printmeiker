@@ -21,6 +21,8 @@ import { GlobalSearch } from './components/GlobalSearch';
 import { NotificacionesPanel, NotifBell } from './components/NotificacionesPanel';
 import { CalculadoraFlotante } from './components/CalculadoraFlotante';
 import { DiagnosticAgent } from './components/DiagnosticAgent';
+import { createCloudBackup, getCloudBackups } from './lib/backupService';
+
 
 const PAGE_TITLES = {
   '/': '🏠 Dashboard',
@@ -32,6 +34,71 @@ const PAGE_TITLES = {
   '/clientes': '👥 Clientes',
   '/calculadora': '🧮 Calculadora',
   '/configuracion': '⚙️ Configuración',
+};
+
+const checkAndTriggerAutoBackup = async (userId) => {
+  try {
+    const lastAutoBackupStr = localStorage.getItem('sep_last_auto_backup_time');
+    let shouldBackup = false;
+    const now = new Date();
+
+    if (lastAutoBackupStr) {
+      const lastBackupDate = new Date(lastAutoBackupStr);
+      const diffMs = now - lastBackupDate;
+      const days = diffMs / (1000 * 60 * 60 * 24);
+      if (days >= 7) {
+        shouldBackup = true;
+      }
+    } else {
+      // Consultar la nube si no hay registro local
+      const backups = await getCloudBackups(userId);
+      const autoBackups = backups.filter(b => b.description === 'Copia automática');
+      
+      if (autoBackups.length > 0) {
+        const latestAuto = autoBackups[0]; // Ya ordenados desc
+        const lastBackupDate = new Date(latestAuto.created_at);
+        const diffMs = now - lastBackupDate;
+        const days = diffMs / (1000 * 60 * 60 * 24);
+        
+        localStorage.setItem('sep_last_auto_backup_time', latestAuto.created_at);
+        if (days >= 7) {
+          shouldBackup = true;
+        }
+      } else {
+        shouldBackup = true;
+      }
+    }
+
+    if (shouldBackup) {
+      console.log('[backup] Iniciando copia de seguridad automática semanal...');
+      const s = store.getState();
+      const backupData = {
+        pedidos:         s.pedidos,
+        cotizaciones:    s.cotizaciones,
+        finanzas:        s.finanzas,
+        clientes:        s.clientes,
+        productos:       s.productos,
+        combos:          s.combos,
+        config:          s.config,
+        negocioConfig:   s.negocioConfig,
+        themeColor:      s.themeColor,
+        notas:           s.notas,
+        categoriasNotas: s.categoriasNotas,
+        etiquetasPersonalizadas: s.etiquetasPersonalizadas,
+        categoriasProducto: s.categoriasProducto,
+        canalesVenta:    s.canalesVenta,
+        etiquetasPedidos: s.etiquetasPedidos,
+        alertasPedidos:  s.alertasPedidos,
+        darkMode:        s.darkMode,
+      };
+
+      await createCloudBackup(userId, backupData, 'Copia automática');
+      localStorage.setItem('sep_last_auto_backup_time', now.toISOString());
+      console.log('[backup] Copia de seguridad automática semanal completada con éxito.');
+    }
+  } catch (err) {
+    console.warn('[backup] Error en verificación de copia automática:', err.message);
+  }
 };
 
 // ── Componente de ruta protegida ──────────────────────────────────────────────
@@ -280,6 +347,10 @@ const AppLayout = () => {
         console.error('[sync] Error al iniciar sesión y sincronizar:', err);
       } finally {
         window.__isBootloading = false;
+        // Verificar y realizar copia de seguridad automática semanal
+        setTimeout(() => {
+          checkAndTriggerAutoBackup(user.id);
+        }, 5000);
       }
     };
 

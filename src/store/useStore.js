@@ -627,6 +627,55 @@ export const store = {
     applyTheme(state.themeColor, isDark);
   },
 
+  // ── restore backup data ──
+  restoreBackupData: (data) => {
+    if (!data || typeof data !== 'object') return;
+
+    // Helper para obtener el ID secuencial máximo
+    const getMaxIdNum = (arr) => {
+      if (!Array.isArray(arr)) return 0;
+      return arr.reduce((max, item) => {
+        const n = parseInt((item.id || '').replace(/[^0-9]/g, ''), 10);
+        return isNaN(n) ? max : Math.max(max, n);
+      }, 0);
+    };
+
+    // Guardar cada sección en localStorage
+    if (data.productos !== undefined) save('sep_productos', data.productos);
+    if (data.combos !== undefined) save('sep_combos', data.combos);
+    if (data.pedidos !== undefined) {
+      save('sep_pedidos', data.pedidos);
+      localStorage.setItem('sep_ped_counter', getMaxIdNum(data.pedidos));
+    }
+    if (data.cotizaciones !== undefined) {
+      save('sep_cotizaciones', data.cotizaciones);
+      localStorage.setItem('sep_cot_counter', getMaxIdNum(data.cotizaciones));
+    }
+    if (data.finanzas !== undefined) {
+      save('sep_finanzas', data.finanzas);
+      localStorage.setItem('sep_fin_counter', getMaxIdNum(data.finanzas));
+    }
+    if (data.clientes !== undefined) {
+      save('sep_clientes', data.clientes);
+      localStorage.setItem('sep_cli_counter', getMaxIdNum(data.clientes));
+    }
+    if (data.etiquetasPersonalizadas !== undefined) save('sep_etiquetas', data.etiquetasPersonalizadas);
+    if (data.categoriasProducto !== undefined) save('sep_categorias_producto', data.categoriasProducto);
+    if (data.canalesVenta !== undefined) save('sep_canales_venta', data.canalesVenta);
+    if (data.config !== undefined) save('sep_config', data.config);
+    if (data.negocioConfig !== undefined) save('sep_negocio_config', data.negocioConfig);
+    if (data.alertasPedidos !== undefined) save('sep_alertas_pedidos', data.alertasPedidos);
+    if (data.themeColor !== undefined) save('sep_theme', data.themeColor);
+    if (data.darkMode !== undefined) save('sep_dark_mode', data.darkMode);
+    if (data.notas !== undefined) save('sep_notas', data.notas);
+    if (data.categoriasNotas !== undefined) save('sep_categorias_notas', data.categoriasNotas);
+    if (data.etiquetasPedidos !== undefined) save('sep_etiquetas_pedidos', data.etiquetasPedidos);
+
+    // Recargar estado
+    store.reloadFromLocalStorage();
+    localStorage.setItem('sep_pending_cloud_sync', 'true');
+  },
+
   // ── reload from localStorage (para sincronización con la nube) ──
   reloadFromLocalStorage: () => {
     const isDark = load('sep_dark_mode', false);

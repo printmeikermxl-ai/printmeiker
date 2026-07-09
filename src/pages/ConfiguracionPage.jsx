@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useStore, store, THEMES } from '../store/useStore';
+import { useStore, store, THEMES, saveToCloud } from '../store/useStore';
 import { useAuth } from '../store/authStore';
+import { createCloudBackup, getCloudBackups, deleteCloudBackup, exportToJSON, importFromJSON } from '../lib/backupService';
+
 
 const DEFAULT_TERMINOS_LOCALES = 'Entrega en punto acordado o recolección en taller.\nAnticipo del 50% para apartar fecha. Saldo al entregar.\nTiempo de producción: 3 a 7 días hábiles según la pieza.';
 const DEFAULT_TERMINOS_NACIONALES = 'Envío por paquetería a tu cargo o cotizado aparte.\nAnticipo del 70% antes de iniciar producción.\nSaldo antes de enviar. Tiempo: 5 a 10 días hábiles.';
@@ -21,6 +23,159 @@ export const ConfiguracionPage = () => {
   const [activeTab, setActiveTab]   = useState('negocio');
   const [copied, setCopied]         = useState(false);
   const [configPhotoErr, setConfigPhotoErr] = useState(false);
+
+  // Estados para Copias de Seguridad (Backups)
+  const [backupsList, setBackupsList] = useState([]);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [backupDescription, setBackupDescription] = useState('');
+  const [creatingBackup, setCreatingBackup] = useState(false);
+  const [confirmRestoreId, setConfirmRestoreId] = useState(null);
+  const [restoreProgress, setRestoreProgress] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+
+  // Obtener copias de seguridad en la nube
+  const fetchBackups = async () => {
+    if (!user) return;
+    setLoadingBackups(true);
+    try {
+      const list = await getCloudBackups(user.id);
+      setBackupsList(list);
+    } catch (err) {
+      console.error('Error al cargar copias de seguridad:', err);
+    } finally {
+      setLoadingBackups(false);
+    }
+  };
+
+  // Cargar copias al entrar a la pestaña o cambiar usuario
+  useEffect(() => {
+    if (activeTab === 'seguridad' && user) {
+      fetchBackups();
+    }
+  }, [activeTab, user]);
+
+  // Handler para crear copia manual en la nube
+  const handleCreateBackup = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    setCreatingBackup(true);
+    try {
+      const s = store.getState();
+      const backupData = {
+        pedidos:         s.pedidos,
+        cotizaciones:    s.cotizaciones,
+        finanzas:        s.finanzas,
+        clientes:        s.clientes,
+        productos:       s.productos,
+        combos:          s.combos,
+        config:          s.config,
+        negocioConfig:   s.negocioConfig,
+        themeColor:      s.themeColor,
+        notas:           s.notas,
+        categoriasNotas: s.categoriasNotas,
+        etiquetasPersonalizadas: s.etiquetasPersonalizadas,
+        categoriasProducto: s.categoriasProducto,
+        canalesVenta:    s.canalesVenta,
+        etiquetasPedidos: s.etiquetasPedidos,
+        alertasPedidos:  s.alertasPedidos,
+        darkMode:        s.darkMode,
+      };
+
+      await createCloudBackup(user.id, backupData, backupDescription.trim() || 'Copia manual');
+      setBackupDescription('');
+      showSaved();
+      fetchBackups();
+    } catch (err) {
+      alert('Error al crear copia de seguridad: ' + err.message);
+    } finally {
+      setCreatingBackup(false);
+    }
+  };
+
+  // Handler para restaurar copia
+  const handleRestoreBackup = async (backup) => {
+    setRestoreProgress(true);
+    try {
+      store.restoreBackupData(backup.data);
+      if (user) {
+        await saveToCloud(user.id, backup.data);
+      }
+      setConfirmRestoreId(null);
+      showSaved();
+      alert('¡Copia de seguridad restaurada correctamente en el sistema!');
+    } catch (err) {
+      alert('Error al restaurar los datos: ' + err.message);
+    } finally {
+      setRestoreProgress(false);
+    }
+  };
+
+  // Handler para borrar copia
+  const handleDeleteBackup = async (id) => {
+    setDeletingId(id);
+    try {
+      await deleteCloudBackup(id);
+      setConfirmDeleteId(null);
+      fetchBackups();
+    } catch (err) {
+      alert('Error al eliminar la copia de seguridad: ' + err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Handler para exportar copia local en JSON
+  const handleExportLocal = () => {
+    const s = store.getState();
+    const backupData = {
+      pedidos:         s.pedidos,
+      cotizaciones:    s.cotizaciones,
+      finanzas:        s.finanzas,
+      clientes:        s.clientes,
+      productos:       s.productos,
+      combos:          s.combos,
+      config:          s.config,
+      negocioConfig:   s.negocioConfig,
+      themeColor:      s.themeColor,
+      notas:           s.notas,
+      categoriasNotas: s.categoriasNotas,
+      etiquetasPersonalizadas: s.etiquetasPersonalizadas,
+      categoriasProducto: s.categoriasProducto,
+      canalesVenta:    s.canalesVenta,
+      etiquetasPedidos: s.etiquetasPedidos,
+      alertasPedidos:  s.alertasPedidos,
+      darkMode:        s.darkMode,
+    };
+    exportToJSON(backupData);
+  };
+
+  // Handler para importar archivo local JSON
+  const handleImportLocal = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!window.confirm('⚠️ ¿Estás seguro de que deseas importar esta copia de seguridad? Esto sobrescribirá TODOS tus datos actuales de la aplicación. Esta acción no se puede deshacer.')) {
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      const data = await importFromJSON(file);
+      store.restoreBackupData(data);
+
+      if (user) {
+        await saveToCloud(user.id, data);
+      }
+      
+      alert('¡Datos locales importados y sincronizados con éxito!');
+    } catch (err) {
+      alert('Error al importar el archivo de copia de seguridad: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
 
   // Forms states
   const [formConfig, setFormConfig] = useState({ ...config });
@@ -172,6 +327,7 @@ export const ConfiguracionPage = () => {
   const TABS = [
     { id: 'negocio',        label: 'Negocio',          icon: '🏢' },
     { id: 'apariencia',     label: 'Apariencia',        icon: '🎨' },
+    { id: 'seguridad',      label: 'Copias de seguridad', icon: '💾' },
     { id: 'acerca',         label: 'Acerca de',         icon: 'ℹ️' },
   ];
 
@@ -737,6 +893,242 @@ export const ConfiguracionPage = () => {
               >
                 🔄 Restablecer apariencia predeterminada
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            TAB: COPIAS DE SEGURIDAD
+        ═══════════════════════════════════════════════════════════════ */}
+        {activeTab === 'seguridad' && (
+          <div style={{ display: 'grid', gap: 20 }}>
+            {/* Cabecera / Explicativo */}
+            <div className="card">
+              <div className="card-header">
+                <span style={{ fontSize: 20 }}>🛡️</span>
+                <span className="card-title">Copias de Seguridad (Nube y Local)</span>
+              </div>
+              <div className="card-body">
+                <p style={{ fontSize: 14, color: 'hsl(var(--muted))', lineHeight: 1.6, marginBottom: 0 }}>
+                  Mantén protegidos todos tus pedidos, cotizaciones, finanzas, catálogo de productos y configuraciones.
+                  {user ? (
+                    <span> Actualmente tus datos se sincronizan automáticamente en tu cuenta de la nube, pero puedes guardar copias en fechas específicas para poder restaurarlas si por error borras información importante.</span>
+                  ) : (
+                    <span style={{ color: 'hsl(var(--warning) || #f59e0b)', fontWeight: 600 }}>
+                      ⚠️ Estás usando el almacenamiento local de tu dispositivo. Te recomendamos registrarte o iniciar sesión para contar con copias de seguridad automáticas en la nube. Mientras tanto, puedes descargar copias locales para mantener tus datos a salvo.
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* SECCIÓN NUBE: Solo si está logueado */}
+            {user ? (
+              <>
+                {/* Crear Copia Manual en la Nube */}
+                <div className="card">
+                  <div className="card-header">
+                    <span style={{ fontSize: 20 }}>☁️</span>
+                    <span className="card-title">Crear copia de seguridad en la nube</span>
+                  </div>
+                  <div className="card-body">
+                    <form onSubmit={handleCreateBackup} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                      <div className="form-group" style={{ flex: 1, minWidth: 250, marginBottom: 0 }}>
+                        <label className="form-label">Comentario o descripción (opcional)</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Ej. Antes de borrar pedidos viejos, Respaldo fin de mes..."
+                          value={backupDescription}
+                          onChange={e => setBackupDescription(e.target.value)}
+                          disabled={creatingBackup}
+                        />
+                      </div>
+                      <button type="submit" className="btn btn-primary" disabled={creatingBackup} style={{ height: 42 }}>
+                        {creatingBackup ? '⏳ Creando...' : '💾 Crear Respaldo'}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Lista de copias en la nube */}
+                <div className="card">
+                  <div className="card-header" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 20 }}>📋</span>
+                      <span className="card-title">Copias guardadas en la nube</span>
+                    </div>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={fetchBackups} disabled={loadingBackups}>
+                      {loadingBackups ? '⏳ Cargando...' : '🔄 Actualizar lista'}
+                    </button>
+                  </div>
+                  <div className="card-body" style={{ padding: 0 }}>
+                    {loadingBackups ? (
+                      <div style={{ padding: '40px 20px', textAlign: 'center', color: 'hsl(var(--muted))' }}>
+                        <div style={{
+                          display: 'inline-block',
+                          width: 24,
+                          height: 24,
+                          border: '3px solid hsl(var(--primary-light))',
+                          borderTopColor: 'hsl(var(--primary))',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite',
+                          marginBottom: 8
+                        }}></div>
+                        <div>Cargando copias de seguridad...</div>
+                      </div>
+                    ) : backupsList.length === 0 ? (
+                      <div style={{ padding: '40px 20px', textAlign: 'center', color: 'hsl(var(--muted))', fontSize: 13 }}>
+                        No tienes copias de seguridad guardadas en la nube todavía.
+                      </div>
+                    ) : (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--bg))' }}>
+                              <th style={{ padding: '12px 16px', fontWeight: 700, color: 'hsl(var(--muted))' }}>Fecha y Hora</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700, color: 'hsl(var(--muted))' }}>Descripción</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700, color: 'hsl(var(--muted))' }}>Detalle</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700, color: 'hsl(var(--muted))', textAlign: 'right' }}>Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {backupsList.map((backup) => {
+                              const date = new Date(backup.created_at);
+                              const formattedDate = date.toLocaleDateString('es-MX', {
+                                year: 'numeric', month: 'short', day: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                              });
+                              const detailText = `${backup.data?.pedidos?.length || 0} ped, ${backup.data?.cotizaciones?.length || 0} cot`;
+                              
+                              const isAuto = backup.description === 'Copia automática';
+
+                              return (
+                                <tr key={backup.id} className="backup-row" style={{ borderBottom: '1px solid hsl(var(--border))', transition: 'background 0.2s' }}>
+                                  <td style={{ padding: '14px 16px', fontWeight: 600 }}>{formattedDate}</td>
+                                  <td style={{ padding: '14px 16px' }}>
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      padding: '2px 8px',
+                                      borderRadius: 99,
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      background: isAuto ? 'hsl(var(--primary-light))' : 'hsl(var(--border))',
+                                      color: isAuto ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+                                      marginRight: 8
+                                    }}>
+                                      {isAuto ? 'Auto' : 'Manual'}
+                                    </span>
+                                    {backup.description}
+                                  </td>
+                                  <td style={{ padding: '14px 16px', color: 'hsl(var(--muted))' }}>{detailText}</td>
+                                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      {confirmRestoreId === backup.id ? (
+                                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                          <span style={{ fontSize: 11, color: 'hsl(var(--warning) || #f59e0b)', fontWeight: 600 }}>¿Restaurar?</span>
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-success"
+                                            disabled={restoreProgress}
+                                            onClick={() => handleRestoreBackup(backup)}
+                                            style={{ fontSize: 11, padding: '4px 8px' }}
+                                          >
+                                            {restoreProgress ? 'Restaurando...' : 'Sí'}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-ghost"
+                                            disabled={restoreProgress}
+                                            onClick={() => setConfirmRestoreId(null)}
+                                            style={{ fontSize: 11, padding: '4px 8px' }}
+                                          >
+                                            No
+                                          </button>
+                                        </div>
+                                      ) : confirmDeleteId === backup.id ? (
+                                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                          <span style={{ fontSize: 11, color: 'hsl(var(--danger))', fontWeight: 600 }}>¿Eliminar?</span>
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-danger"
+                                            disabled={deletingId === backup.id}
+                                            onClick={() => handleDeleteBackup(backup.id)}
+                                            style={{ fontSize: 11, padding: '4px 8px' }}
+                                          >
+                                            {deletingId === backup.id ? 'Borrando...' : 'Sí'}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-ghost"
+                                            disabled={deletingId === backup.id}
+                                            onClick={() => setConfirmDeleteId(null)}
+                                            style={{ fontSize: 11, padding: '4px 8px' }}
+                                          >
+                                            No
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <button
+                                            type="button"
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ fontSize: 11, padding: '4px 8px' }}
+                                            onClick={() => { setConfirmRestoreId(backup.id); setConfirmDeleteId(null); }}
+                                          >
+                                            🔄 Restaurar
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="btn btn-ghost btn-sm"
+                                            style={{ fontSize: 11, padding: '4px 8px', color: 'hsl(var(--danger))' }}
+                                            onClick={() => { setConfirmDeleteId(backup.id); setConfirmRestoreId(null); }}
+                                          >
+                                            🗑️ Eliminar
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            {/* SECCIÓN LOCAL: Exportar / Importar archivos JSON */}
+            <div className="card">
+              <div className="card-header">
+                <span style={{ fontSize: 20 }}>💾</span>
+                <span className="card-title">Copias de seguridad en archivos locales (.json)</span>
+              </div>
+              <div className="card-body">
+                <p style={{ fontSize: 13, color: 'hsl(var(--muted))', lineHeight: 1.5, marginBottom: 16 }}>
+                  Descarga un archivo con todos tus datos en tu dispositivo, o sube un archivo previamente descargado para restaurar tu información.
+                </p>
+                
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-secondary" onClick={handleExportLocal}>
+                    📥 Descargar copia de seguridad (.json)
+                  </button>
+
+                  <label className="btn btn-ghost" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                    📤 Importar copia desde archivo (.json)
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportLocal}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         )}
