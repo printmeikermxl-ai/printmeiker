@@ -199,7 +199,6 @@ export const ProductLinesInput = ({ lines = [], onChange, productos = [], combos
                   placeholder="Cant."
                   value={line.cantidad}
                   onChange={e => updateLine(i, 'cantidad', e.target.value)}
-                  disabled={line._esCombo}
                 />
                 <input
                   className="form-input"
@@ -220,6 +219,39 @@ export const ProductLinesInput = ({ lines = [], onChange, productos = [], combos
                   🗑️
                 </button>
               </div>
+
+              {/* Resumen de subtotal por cantidad de esta línea */}
+              {Number(line.cantidad) > 1 && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: 12,
+                  padding: '6px 12px',
+                  background: 'hsl(var(--primary-light) / 0.4)',
+                  borderRadius: 8,
+                  color: 'hsl(var(--primary-dark))',
+                  fontWeight: 600,
+                  marginTop: 4,
+                  border: '1px solid hsl(var(--primary) / 0.15)'
+                }}>
+                  <span>Subtotal por cantidad ({line.cantidad} x {fmt(line.precio)}):</span>
+                  <span>
+                    {line.descuentoActivo && Number(line.descuentoValor) > 0 ? (
+                      <>
+                        <span style={{ textDecoration: 'line-through', color: 'hsl(var(--muted))', marginRight: 8 }}>
+                          {fmt(Number(line.cantidad) * Number(line.precio))}
+                        </span>
+                        <span>
+                          {fmt(Number(line.cantidad) * Number(line.precio) - calcularDescuentoLinea(line))}
+                        </span>
+                      </>
+                    ) : (
+                      fmt(Number(line.cantidad) * Number(line.precio))
+                    )}
+                  </span>
+                </div>
+              )}
 
               {/* Indicador de precio mayoreo activo */}
               {tieneMayoreo && !isCustom && (
