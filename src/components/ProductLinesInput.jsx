@@ -295,7 +295,7 @@ export const ProductLinesInput = ({ lines = [], onChange, productos = [], combos
                             return (
                               <div key={idx} style={{ fontSize: 12, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <span style={{ display: 'inline-block', width: 20, height: 16, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 4, textAlign: 'center', lineHeight: '16px', fontWeight: 700, fontSize: 9 }}>
-                                  {match[1]}
+                                  {Number(match[1]) * Number(line.cantidad || 1)}
                                 </span>
                                 <span style={{ fontWeight: 500 }}>{match[2]}</span>
                               </div>

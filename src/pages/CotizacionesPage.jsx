@@ -580,7 +580,7 @@ export const CotizacionesPage = () => {
                               {comboObj.articulos.map((a, idx) => (
                                 <div key={idx} style={{ fontSize: 11, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 6 }}>
                                   <span style={{ display: 'inline-block', width: 18, height: 15, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 3, textAlign: 'center', lineHeight: '15px', fontWeight: 700, fontSize: 9 }}>
-                                    {a.cantidad}
+                                    {Number(a.cantidad) * Number(line.cantidad || 1)}
                                   </span>
                                   <span>{a.nombre}</span>
                                 </div>
@@ -598,7 +598,7 @@ export const CotizacionesPage = () => {
                                   return (
                                     <div key={idx} style={{ fontSize: 11, color: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', gap: 6 }}>
                                       <span style={{ display: 'inline-block', width: 18, height: 15, background: 'hsl(var(--primary-light))', color: 'hsl(var(--primary))', borderRadius: 3, textAlign: 'center', lineHeight: '15px', fontWeight: 700, fontSize: 9 }}>
-                                        {match[1]}
+                                        {Number(match[1]) * Number(line.cantidad || 1)}
                                       </span>
                                       <span>{match[2]}</span>
                                     </div>
